@@ -19,11 +19,12 @@ signed upload URL. Flujo en 3 pasos:
 
 ```ts
 const meta = documentMetaSchema.parse(input);            // zod
-await requireProjectAdmin(meta.projectId);               // 403 si no corresponde
+await authorize(principal, { projectId: meta.projectId, segmentId: meta.segmentId }, "admin_upload");
 const docId = crypto.randomUUID();
 const path = `projects/${meta.projectId}/${segmentSlug}/${docId}.pdf`;   // nunca el nombre original
 const { data, error } = await admin.storage.from("documents").createSignedUploadUrl(path);
-// insertar fila en documents con upload_status = 'pending', file_path = path, uploaded_by = usuario
+// insertar fila en documents con el cliente autenticado del usuario (RLS),
+// sin enviar file_path: el trigger de la BD lo deriva del proyecto, segmento e id.
 return { docId, path, token: data.token };
 ```
 
@@ -37,6 +38,11 @@ await supabase.storage.from("documents").uploadToSignedUrl(path, token, file, {
 
 Mostrar progreso por archivo, permitir varios en paralelo (máx. 3 a la vez) y reintentar los fallidos.
 
+`file_path` es una excepción SOLO en esta respuesta efímera para el admin del proyecto:
+`uploadToSignedUrl(path, token, file)` lo exige. Nunca aparece en listados, lecturas de documentos,
+logs ni respuestas del visor. No registrar el path ni el token. La signed upload URL y el path
+deben crearse solo después de `authorize()`.
+
 ### 3. `finalizeUpload(docId)` — server action
 
 1. Confirmar que el usuario es admin del proyecto del documento.
@@ -44,7 +50,8 @@ Mostrar progreso por archivo, permitir varios en paralelo (máx. 3 a la vez) y r
 3. Verificar los magic bytes: pedir una signed URL de descarga corta y leer los primeros bytes con
    `Range: bytes=0-4`; deben ser `%PDF-`. Si no coinciden, borrar objeto y fila y devolver error.
 4. Rechazar si supera el límite (50 MB, configurable en una constante).
-5. Actualizar la fila: `upload_status = 'ready'`, `file_size`, y solo entonces el documento aparece en el portal.
+5. Actualizar la fila con el cliente autenticado del usuario (RLS):
+   `upload_status = 'ready'`, `file_size`; solo entonces aparece en el portal.
 
 Los documentos en `pending` por más de 1 hora son basura de subidas interrumpidas: dejar una función
 o tarea programada (cron de Supabase) que borre fila y objeto.
@@ -74,7 +81,10 @@ Campos: `projectId` (uuid), `segmentId` (uuid), `title` (1–200), `docNumber` (
 - **Logs**: tabla paginada de `access_logs` con filtros (usuario/código, proyecto, acción, fechas) y
   botón "Export CSV" generado en servidor (streaming si hay muchas filas). Escapar celdas que empiecen con
   `=`, `+`, `-`, `@` para evitar inyección de fórmulas en Excel.
-- Confirmación antes de borrar; borrar un documento elimina también el objeto en Storage.
+- Confirmación antes de archivar. La app actualiza `archived_at` con el cliente del usuario;
+  el trigger fija fecha y actor. El documento desaparece del portal, pero Storage y logs quedan.
+  Después de 30 días, `npm run cleanup:archived -- --execute` elimina objeto y fila con
+  `service_role`, conservando los snapshots de `access_logs`. Sin `--execute` es dry-run.
 
 ## Tests obligatorios
 

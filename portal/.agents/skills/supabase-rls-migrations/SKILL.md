@@ -21,6 +21,12 @@ aunque el frontend o un endpoint tengan un bug.
    `set search_path = public`, para evitar recursión de políticas y secuestro del search_path.
 6. Indexar toda columna usada en políticas o filtros: `project_id`, `segment_id`, `user_id`,
    `organization_id`, `code_hash` (único).
+7. Escrituras de negocio desde el cliente autenticado del usuario, sujetas a RLS.
+   `documents`, `projects` y `organizations` se archivan; no crear políticas DELETE para clientes.
+   Una migración aplicada nunca se edita: agregar otra migración para cualquier ajuste.
+8. En TODA tabla nueva de `public`, revocar `TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN`
+   a `PUBLIC`, `anon` y `authenticated`: los grants predeterminados de Supabase los incluyen,
+   y `TRUNCATE` salta RLS. Probar privilegios efectivos, no solo políticas.
 
 ## Ajustes al esquema base (incluir en la migración inicial)
 
@@ -63,7 +69,9 @@ $$;
 alter table documents enable row level security;
 
 create policy documents_select on documents for select to authenticated
-  using (upload_status = 'ready' and public.has_doc_access(project_id, segment_id));
+  using (public.is_project_admin(project_id) or
+    (upload_status = 'ready' and archived_at is null and public.is_active_project(project_id)
+      and public.has_doc_access(project_id, segment_id)));
 create policy documents_insert on documents for insert to authenticated
   with check (public.is_project_admin(project_id));
 create policy documents_update on documents for update to authenticated
@@ -74,7 +82,8 @@ create policy documents_delete on documents for delete to authenticated
 
 - `projects`: select si `has_doc_access` a alguno de sus segmentos o `is_project_admin`; o si `is_public`
   (solo columnas públicas, idealmente vía una vista `public_projects`).
-- `profiles`: cada usuario lee su fila; admins leen las de su organización; nadie cambia su propio `role`.
+- `profiles`: cada usuario lee su fila; admins leen las de su organización; miembros no cambian su `role`.
+- `documents`, `projects`, `organizations`: admin archiva con UPDATE; ninguna política DELETE de cliente.
 - `user_project_access`: select propio; escritura solo admins.
 - `access_codes`, `access_code_grants`, `access_logs`: SOLO admins (select) y `service_role`.
   Los visitantes con código NO son usuarios de Supabase Auth: se resuelven en servidor con service role

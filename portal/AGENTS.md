@@ -45,10 +45,14 @@ supabase/seed.sql
 
 ## Reglas no negociables
 
-1. Bucket de Storage PRIVADO. Nunca URLs públicas de PDFs, nunca exponer `file_path` al cliente.
+1. Bucket de Storage PRIVADO. Nunca URLs públicas de PDFs. `file_path` no aparece en lecturas,
+   listados ni columnas legibles por clientes. Única excepción: la respuesta efímera de
+   `prepareUpload` al admin autorizado del proyecto, si `uploadToSignedUrl` exige el path.
 2. Los PDFs se sirven SOLO con signed URL de vida corta (300 s), generada en servidor DESPUÉS de
    llamar a `authorize()`.
 3. RLS activo en TODAS las tablas de `public`. Toda migración que cree una tabla incluye sus políticas.
+   Revocar `TRUNCATE`, `TRIGGER`, `REFERENCES` y `MAINTAIN` a roles de cliente en cada
+   tabla nueva: los grants predeterminados de Supabase pueden saltar RLS.
 4. TODA decisión de permiso pasa por `src/lib/auth/authorize.ts`. Prohibido re-implementar permisos
    en endpoints o componentes.
 5. Los códigos de acceso se guardan solo como hash (ver skill `access-code-flow`), se muestran una
@@ -57,6 +61,14 @@ supabase/seed.sql
 7. Validar todo input externo con zod, en servidor. Mensajes de error genéricos en login y códigos.
 8. Registrar en `access_logs`: login, code_redeem, view, download.
 9. Nunca editar una migración ya aplicada: crear una nueva.
+10. Las escrituras de admin en `organizations`, `projects`, `documents`, `profiles`,
+    `user_project_access`, `access_codes` y `access_code_grants` usan el cliente autenticado
+    del usuario y quedan sujetas a RLS. `service_role` se limita a signed URLs y operaciones
+    de Storage, canje atómico de códigos, invitaciones de Auth, inserción de `access_logs`,
+    lecturas de `authorize()` para visitantes y la tarea controlada de limpieza.
+11. `organizations`, `projects` y `documents` se archivan con `archived_at`; la app no los
+    borra físicamente. Los documentos archivados permanecen 30 días antes de la limpieza
+    de Storage con `--execute`. Los logs conservan snapshots del documento y proyecto.
 
 ## Flujo de trabajo
 

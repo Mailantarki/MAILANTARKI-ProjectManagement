@@ -1,0 +1,22 @@
+{
+  "name": "mailantarki-document-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint scripts",
+    "typecheck": "tsc --noEmit",
+    "test": "supabase test db",
+    "cleanup:archived": "node --env-file-if-exists=.env.local scripts/cleanup-archived-documents.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.5.2",
+    "eslint": "^9.36.0",
+    "supabase": "2.117.0",
+    "typescript": "^5.9.3"
+  }
+}

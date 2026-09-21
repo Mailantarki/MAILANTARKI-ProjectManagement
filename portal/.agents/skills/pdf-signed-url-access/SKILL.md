@@ -31,7 +31,7 @@ export async function getPrincipal(): Promise<Principal | null> {
 ```ts
 // src/lib/auth/authorize.ts
 import "server-only";
-export type Action = "view" | "download";
+export type Action = "view" | "download" | "admin_upload";
 
 export async function authorize(
   p: Principal,
@@ -47,6 +47,8 @@ export async function authorize(
   // visitor                     -> access_code activo y no vencido, con grant en access_code_grants
   //                                (project_id, segment_id NULL o = target.segmentId);
   //                                download requiere access_codes.allow_download = true
+  // admin_upload                -> solo super_admin u org_admin del proyecto activo;
+  //                                nunca member ni visitante
   // cualquier otro caso         -> false
 }
 ```
