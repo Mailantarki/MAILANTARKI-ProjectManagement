@@ -4,19 +4,43 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint": "eslint scripts",
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "supabase test db",
-    "cleanup:archived": "node --env-file-if-exists=.env.local scripts/cleanup-archived-documents.mjs"
+    "test": "vitest run && supabase test db",
+    "test:e2e": "playwright test",
+    "cleanup:archived": "node --env-file-if-exists=.env.local scripts/cleanup-archived-documents.mjs",
+    "cleanup:auth-attempts": "node --env-file-if-exists=.env.local scripts/cleanup-auth-attempts.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.116.0"
+    "@inquirer/prompts": "^8.7.2",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "jose": "^6.2.12",
+    "lucide-react": "^1.47.0",
+    "next": "^16.3.5",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-pdf": "^11.0.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.5.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "eslint": "^9.36.0",
+    "eslint-config-next": "^16.3.5",
+    "postcss": "^8.5.28",
     "supabase": "2.117.0",
-    "typescript": "^5.9.3"
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1"
   }
 }

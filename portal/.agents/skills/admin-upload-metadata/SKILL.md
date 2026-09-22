@@ -50,8 +50,12 @@ deben crearse solo después de `authorize()`.
 3. Verificar los magic bytes: pedir una signed URL de descarga corta y leer los primeros bytes con
    `Range: bytes=0-4`; deben ser `%PDF-`. Si no coinciden, borrar objeto y fila y devolver error.
 4. Rechazar si supera el límite (50 MB, configurable en una constante).
-5. Actualizar la fila con el cliente autenticado del usuario (RLS):
-   `upload_status = 'ready'`, `file_size`; solo entonces aparece en el portal.
+5. Invocar `finalize_document_upload(docId, fileSize)` con el cliente autenticado del
+   usuario. Es un RPC `security definer` limitado al flip `pending -> ready`, que
+   reconfirma `is_project_admin` dentro. El cliente no tiene permiso de UPDATE sobre
+   `upload_status` ni puede eludir la validación por escritura directa. Si el RPC
+   devuelve `invalid_status_transition`, tratarlo como finalización concurrente.
+   Solo después del RPC aparece el documento en el portal.
 
 Los documentos en `pending` por más de 1 hora son basura de subidas interrumpidas: dejar una función
 o tarea programada (cron de Supabase) que borre fila y objeto.

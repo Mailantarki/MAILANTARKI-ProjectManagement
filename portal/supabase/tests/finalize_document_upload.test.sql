@@ -1,0 +1,56 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path = public, extensions;
+select no_plan();
+
+insert into public.organizations(id, name) values
+  ('12000000-0000-0000-0000-000000000001', 'Finalize Org A'),
+  ('12000000-0000-0000-0000-000000000002', 'Finalize Org B');
+insert into public.projects(id, organization_id, name, slug) values
+  ('32000000-0000-0000-0000-000000000001', '12000000-0000-0000-0000-000000000001', 'Finalize A', 'finalize-a'),
+  ('32000000-0000-0000-0000-000000000002', '12000000-0000-0000-0000-000000000002', 'Finalize B', 'finalize-b');
+insert into auth.users(id, instance_id, aud, role, email, encrypted_password) values
+  ('42000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finalize-a@test.invalid', ''),
+  ('42000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'finalize-b@test.invalid', '');
+insert into public.profiles(id, organization_id, role, full_name) values
+  ('42000000-0000-0000-0000-000000000011', '12000000-0000-0000-0000-000000000001', 'org_admin', 'Finalize Admin A'),
+  ('42000000-0000-0000-0000-000000000012', '12000000-0000-0000-0000-000000000002', 'org_admin', 'Finalize Admin B');
+insert into public.documents(id, project_id, segment_id, title, doc_number, doc_type, file_size) values
+  ('52000000-0000-0000-0000-000000000001', '32000000-0000-0000-0000-000000000001',
+   (select id from public.segments where slug='architecture-structure'), 'Pending A', 'PENDING-A', 'plan', 5);
+
+select ok(not has_column_privilege('authenticated', 'public.documents', 'upload_status', 'UPDATE'),
+  'authenticated client cannot update upload_status column');
+select ok(not has_function_privilege('anon', 'public.finalize_document_upload(uuid,bigint)', 'EXECUTE'),
+  'anon cannot call finalize RPC');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '42000000-0000-0000-0000-000000000011', true);
+select throws_ok($$update public.documents set upload_status='ready'
+  where id='52000000-0000-0000-0000-000000000001'$$,
+  '42501', null, 'direct authenticated update cannot mark pending document ready');
+select is((select upload_status from public.documents where id='52000000-0000-0000-0000-000000000001'),
+  'pending', 'blocked direct update leaves document pending');
+update public.documents set title='Edited pending' where id='52000000-0000-0000-0000-000000000001';
+select is((select title from public.documents where id='52000000-0000-0000-0000-000000000001'),
+  'Edited pending', 'regular metadata update remains possible');
+
+select set_config('request.jwt.claim.sub', '42000000-0000-0000-0000-000000000012', true);
+select throws_ok($$select public.finalize_document_upload('52000000-0000-0000-0000-000000000001', 100)$$,
+  'P0001', 'forbidden', 'admin from another organization cannot finalize guessed document id');
+
+select set_config('request.jwt.claim.sub', '42000000-0000-0000-0000-000000000011', true);
+select lives_ok($$select public.finalize_document_upload('52000000-0000-0000-0000-000000000001', 100)$$,
+  'owner admin can finalize via authenticated RPC');
+select is((select upload_status from public.documents where id='52000000-0000-0000-0000-000000000001'),
+  'ready', 'RPC makes the document ready');
+select is((select file_size from public.documents where id='52000000-0000-0000-0000-000000000001'),
+  100::bigint, 'RPC records server-verified size');
+select throws_ok($$select public.finalize_document_upload('52000000-0000-0000-0000-000000000001', 100)$$,
+  'P0001', 'invalid_status_transition', 'second finalization fails without changing ready document');
+update public.documents set title='Edited ready' where id='52000000-0000-0000-0000-000000000001';
+select is((select title from public.documents where id='52000000-0000-0000-0000-000000000001'),
+  'Edited ready', 'regular metadata updates still work after finalization');
+
+select * from finish();
+rollback;

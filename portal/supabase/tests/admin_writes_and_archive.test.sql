@@ -2,6 +2,12 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select no_plan();
+select set_config('test.initial_document_count',
+  (select count(*)::text from public.documents), true);
+select set_config('test.initial_log_count',
+  (select count(*)::text from public.access_logs), true);
+select set_config('test.initial_profile_count',
+  (select count(*)::text from public.profiles), true);
 
 insert into public.organizations (id, name) values
   ('11000000-0000-0000-0000-000000000001', 'RLS Test A'),
@@ -61,11 +67,17 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '41000000-0000-0000-0000-000000000001', true);
 select is((select count(*) from public.projects), 8::bigint, 'super admin reads all projects');
-select is((select count(*) from public.documents), 2::bigint, 'super admin reads all documents');
+select is((select count(*) from public.documents),
+  current_setting('test.initial_document_count')::bigint + 2,
+  'super admin reads all documents including the fixture');
 select is((select count(*) from public.access_codes), 2::bigint, 'super admin reads all codes');
 select is((select count(*) from public.access_code_grants), 2::bigint, 'super admin reads all grants');
-select is((select count(*) from public.access_logs), 1::bigint, 'super admin reads all logs');
-select is((select count(*) from public.profiles), 4::bigint, 'super admin reads all profiles');
+select is((select count(*) from public.access_logs),
+  current_setting('test.initial_log_count')::bigint + 1,
+  'super admin reads all logs including the fixture');
+select is((select count(*) from public.profiles),
+  current_setting('test.initial_profile_count')::bigint + 4,
+  'super admin reads all profiles including the fixture');
 insert into public.organizations (name) values ('RLS Super Created');
 select is((select count(*) from public.organizations where name = 'RLS Super Created'), 1::bigint,
   'super admin creates organizations');

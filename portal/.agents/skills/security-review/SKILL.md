@@ -19,6 +19,10 @@ select schemaname, tablename, policyname, roles, cmd, qual from pg_policies wher
 - Ninguna política con `using (true)` ni `to public`/`anon` sobre tablas con datos de negocio.
 - `access_codes`, `access_code_grants` y `access_logs` no legibles por `authenticated` no-admin.
 - Funciones `security definer` con `set search_path = public`; `redeem_access_code` solo para `service_role`.
+- `authenticated` carece de UPDATE directo sobre `documents.upload_status` y la política
+  `documents_update` impide cambiar su valor. `finalize_document_upload` reconfirma
+  `is_project_admin` antes del único flip `pending -> ready`; probar bypass directo,
+  proyecto ajeno y doble llamada.
 - Correr `npx supabase test db`: todos los tests de permisos en verde.
 
 ## 2. Secretos y separación cliente/servidor

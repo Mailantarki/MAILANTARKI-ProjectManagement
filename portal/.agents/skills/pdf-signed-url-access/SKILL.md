@@ -74,10 +74,10 @@ Orden estricto:
      .from("documents")
      .createSignedUrl(doc.file_path, 300, download ? { download: fileNameFrom(doc) } : undefined);
    ```
-7. Responder `{ url, expiresIn: 300, allowDownload, watermark }` con
+7. Responder `{ url, expiresIn: 300, allowDownload }` con
    `Cache-Control: no-store`. NUNCA incluir `file_path` en la respuesta.
 
-`watermark` es el texto a superponer en el visor: email del usuario o `label` del código.
+No devolver emails ni textos de marca de agua al visor.
 
 ## Anti-patrones (rechazar en revisión)
 

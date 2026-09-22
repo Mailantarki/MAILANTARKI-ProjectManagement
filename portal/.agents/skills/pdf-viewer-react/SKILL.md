@@ -1,6 +1,6 @@
 ---
 name: pdf-viewer-react
-description: Usar al construir o modificar el visor de PDF del portal (react-pdf / pdf.js en Next.js) y la página de listado de documentos con filtros: paginación, zoom, ajustar al ancho, pantalla completa, miniaturas, marca de agua, botón de descarga condicional, y filtros sincronizados con la URL. Aplica ante cualquier mención de visor, viewer, "ver el plano", preview de PDF, zoom, filtros de documentos o tabla de documentos.
+description: Usar al construir o modificar el visor de PDF del portal (react-pdf / pdf.js en Next.js) y la página de listado de documentos con filtros: paginación, zoom, ajustar al ancho, pantalla completa, miniaturas, botón de descarga condicional, y filtros sincronizados con la URL. Aplica ante cualquier mención de visor, viewer, "ver el plano", preview de PDF, zoom, filtros de documentos o tabla de documentos.
 ---
 
 # Visor de PDF y listado con filtros
@@ -33,7 +33,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 El visor recibe el `documentId`, NO una URL. Al montar (y al recibir un error de carga):
 
-1. `fetch(\`/api/documents/${id}/url\`)` -> `{ url, allowDownload, watermark }`.
+1. `fetch(\`/api/documents/${id}/url\`)` -> `{ url, allowDownload, expiresIn }`.
 2. Pasar `url` a `<Document file={url}>`.
 3. Si la carga falla (URL expirada, red), pedir una URL nueva UNA vez y reintentar; si vuelve a fallar,
    mostrar un estado de error con botón "Retry".
@@ -50,16 +50,15 @@ El visor recibe el `documentId`, NO una URL. Al montar (y al recibir un error de
 - Estados: cargando (skeleton), error, PDF vacío.
 - Accesible: botones con `aria-label`, foco visible, se cierra con Esc si está en modal.
 
-### Descarga y marca de agua
+### Descarga
 
 - Mostrar el botón "Download" solo si `allowDownload === true`. Al pulsarlo, pedir una URL nueva con
   `?download=1` (así queda registrado y autorizado en servidor). No reutilizar la URL de visualización.
-- Marca de agua: superponer el texto `watermark` (email o etiqueta del código, más fecha) en diagonal
-  y repetido sobre cada página, con `pointer-events: none` y baja opacidad.
+- No agregar marcas de agua al visor ni enviar el email del usuario en la respuesta de la signed URL.
 - Deshabilitar el menú contextual en el canvas es un disuasivo menor, no una protección.
 
 Aclarar en el README: un visor en el navegador no puede impedir que alguien capture la pantalla
-o guarde lo que ve. La marca de agua y el registro de accesos son disuasivos y trazabilidad;
+o guarde lo que ve. El registro de accesos ofrece trazabilidad;
 la protección real es no dar acceso a quien no corresponde (ver skill `pdf-signed-url-access`).
 
 ## Página de proyecto: listado y filtros

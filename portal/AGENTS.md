@@ -66,6 +66,13 @@ supabase/seed.sql
     del usuario y quedan sujetas a RLS. `service_role` se limita a signed URLs y operaciones
     de Storage, canje atómico de códigos, invitaciones de Auth, inserción de `access_logs`,
     lecturas de `authorize()` para visitantes y la tarea controlada de limpieza.
+    Excepciones de Fase 2: los scripts CLI confiables crean el usuario Auth y su perfil
+    inicial con service role; los endpoints usan service role para canje atómico, rate
+    limit persistente y `access_logs`. La creación de códigos usa cliente autenticado y RLS.
+    La única transición de `documents.upload_status` de `pending` a `ready` usa
+    `finalize_document_upload(id, size)`: RPC `security definer` invocado con el cliente
+    `authenticated`, con `is_project_admin` reconfirmado dentro. No usa `service_role`.
+    La columna no es actualizable directamente por clientes autenticados.
 11. `organizations`, `projects` y `documents` se archivan con `archived_at`; la app no los
     borra físicamente. Los documentos archivados permanecen 30 días antes de la limpieza
     de Storage con `--execute`. Los logs conservan snapshots del documento y proyecto.
@@ -86,3 +93,13 @@ supabase/seed.sql
 - `pdf-viewer-react` — visor de PDF
 - `admin-upload-metadata` — carga de PDFs con metadatos desde el admin
 - `security-review` — checklist obligatorio al cerrar cada fase
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
