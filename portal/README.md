@@ -1,9 +1,9 @@
 # MAILANTARKI.COM Technical Documentation Portal
 
 Phases 2 and 3 provide authentication, visitor codes, authorized listings and a
-private PDF viewer. Phase 4 is in progress: admin upload, organizations/projects,
-user creation and grants, access codes and access logs are implemented. Document
-archive/restore UI and final security review remain open.
+private PDF viewer. Phase 4 provides admin upload, organizations/projects,
+user creation and grants, access codes, access logs and document archive/restore.
+Phase 5 (production hardening and deployment) has not started.
 The domain `mailantarki.com` is planned, not configured.
 
 ## Local setup
@@ -209,20 +209,28 @@ The user list reads Auth email addresses with the server-only Auth admin API,
 then shows only profiles visible through the requesting admin's RLS scope.
 
 `/admin/organizations` and `/admin/projects` create, edit, archive and restore
-records. `/admin/users` creates accounts and assigns project/discipline access;
+records. `/admin/projects/[slug]/documents` lists active and archived documents
+and permits archive/restore only; physical deletion and the cleanup command are
+not available in the panel. `/admin/users` creates accounts and assigns project/discipline access;
 `/admin/codes` creates segment-scoped codes atomically and revokes/reactivates them.
 `/admin/logs` filters access history and streams a CSV with spreadsheet-formula
 escaping. Audit logs are never deleted by the E2E suite. Restoration only changes
 `archived_at`; a physical delete is never offered in the panel.
 
-This partial Phase 4 block passed 43 TypeScript tests, 110 SQL assertions,
+The Phase 4 closeout passed 44 TypeScript tests, 110 SQL assertions,
 7 browser E2E tests, lint, typecheck, build and a production dependency audit.
 The browser suite includes an isolated visitor context: an admin creates a code,
 the visitor sees only its discipline, a direct request for another PDF returns
 404, and revocation cuts access on the next request. New migrations were applied
 locally without resetting Storage; Mauritius still has 22 ready rows, 22 private
-objects and no orphan objects. The final Phase 4 reset/reimport and security
-review remain pending until document archive/restore UI is complete.
+objects and no orphan objects. A fresh local `supabase db reset` on 2026-09-22
+applied every migration and seed. The real Mauritius importer then reported
+`22 uploaded / 0 duplicates` followed by `0 uploaded / 22 duplicates`; verification
+found 22 ready rows, 22 private objects and zero orphans. The temporary import
+super admin was demoted and its Auth account soft-deleted after verification.
+The Phase 4 security review is approved with a production observation: verify
+the trusted proxy's `x-forwarded-for` behavior before relying on it for IP rate
+limiting in Phase 5. No deployment or remote Supabase changes have been made.
 
 ## Verification and remaining work
 

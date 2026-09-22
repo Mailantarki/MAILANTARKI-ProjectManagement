@@ -33,6 +33,7 @@ export default async function AdminProjectsPage() {
       {(projects ?? []).filter((project) => !project.archived_at).map((project) =>
         <div className="admin-record" key={project.id}>
           <div className="admin-record-heading"><strong>{project.name}</strong>
+            <Link href={`/admin/projects/${project.slug}/documents`}>Documents</Link>
             <Link href={`/admin/projects/${project.slug}/documents/new`}>Upload PDFs</Link></div>
           <AdminForm action={saveProject} label="Save changes">
             <input type="hidden" name="id" value={project.id} />
@@ -53,6 +54,7 @@ export default async function AdminProjectsPage() {
     <section className="admin-section"><h2>Archived</h2>
       {(projects ?? []).filter((project) => project.archived_at).map((project) =>
         <div className="admin-record" key={project.id}><strong>{project.name}</strong>
+          <Link href={`/admin/projects/${project.slug}/documents`}>Documents</Link>
           <AdminForm action={setProjectArchived} label="Restore">
             <input type="hidden" name="id" value={project.id} /><input type="hidden" name="archived" value="false" />
           </AdminForm></div>)}

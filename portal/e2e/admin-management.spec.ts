@@ -66,7 +66,7 @@ test.describe.serial("admin organizations, projects and users", () => {
 
     await page.goto("/admin/users");
     const create = page.getByRole("heading", { name: "Create user" }).locator("..");
-    await create.getByLabel("Email").fill(fixture.memberEmail);
+    await create.getByLabel("Email", { exact: true }).fill(fixture.memberEmail);
     await create.getByLabel("Full name").fill(`Member ${suffix}`);
     await create.locator('select[name="organizationId"]').selectOption({ label: "MAILANTARKI.COM" });
     await create.getByRole("button", { name: "Create user" }).click();

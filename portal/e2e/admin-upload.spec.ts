@@ -61,6 +61,18 @@ test.describe.serial("admin upload transition", () => {
     expect(document.file_size).toBe(bytes.length);
     await page.goto("/projects/maylan-plaza");
     await expect(page.getByRole("cell", { name: fixture.number }).first()).toBeVisible();
+    await page.goto("/admin/projects/maylan-plaza/documents");
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("row", { name: new RegExp(fixture.number) }).getByRole("button", { name: "Archive" }).click();
+    await expect(page.getByRole("heading", { name: "Archived (1)" })).toBeVisible();
+    await page.goto("/projects/maylan-plaza");
+    await expect(page.getByRole("cell", { name: fixture.number })).toHaveCount(0);
+    await page.goto("/admin/projects/maylan-plaza/documents");
+    await page.getByRole("row", { name: new RegExp(fixture.number) }).getByRole("button", { name: "Restore" }).click();
+    await expect(page.getByRole("heading", { name: "Archived (0)" })).toBeVisible();
+    await page.goto("/projects/maylan-plaza");
+    await expect(page.getByRole("cell", { name: fixture.number }).first()).toBeVisible();
   });
 
   test("failed Storage upload can be retried without pending metadata", async ({ page }) => {
