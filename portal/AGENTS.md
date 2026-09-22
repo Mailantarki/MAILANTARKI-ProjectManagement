@@ -14,7 +14,8 @@ Proyectos (seed inicial):
 6. Mauritius Golf Estate, Mabushi
 
 Segmentos (aplican a cada proyecto): Architecture, Structure, Mechanical Electrical & Plumbing (MEP),
-Landscaping, Interior Design, Sales Plans.
+Landscaping, Interior Design, Sales Plan. Orden de interfaz: Architecture, Structure,
+MEP, Interior Design, Landscaping, Sales Plan.
 
 Roles: `super_admin` (todo), `org_admin` (solo su organización), `member` (solo lo asignado),
 y visitante con código (solo lectura, solo lo que el código habilita).

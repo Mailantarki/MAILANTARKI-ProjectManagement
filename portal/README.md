@@ -198,7 +198,7 @@ npm audit --omit=dev
 Current verified baseline:
 
 - 44 TypeScript tests
-- 115 SQL assertions
+- 116 SQL assertions
 - 7 Playwright browser tests
 - Production dependency audit with no known vulnerabilities at the last local review
 - Full Phase 4 security review approved with one production follow-up

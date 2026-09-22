@@ -6,9 +6,9 @@ select plan(14);
 insert into public.organizations (id, name) values
   ('10000000-0000-0000-0000-000000000001', 'Test Organization A'),
   ('10000000-0000-0000-0000-000000000002', 'Test Organization B');
-insert into public.segments (id, name, slug) values
-  ('20000000-0000-0000-0000-000000000001', 'Test Architecture', 'architecture'),
-  ('20000000-0000-0000-0000-000000000002', 'Test MEP', 'mep')
+insert into public.segments (id, name, slug, sort_order) values
+  ('20000000-0000-0000-0000-000000000001', 'Test Architecture', 'architecture', 1),
+  ('20000000-0000-0000-0000-000000000002', 'Test MEP', 'mep', 3)
 on conflict (slug) do nothing;
 
 insert into public.projects (id, organization_id, name, slug) values

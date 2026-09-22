@@ -43,7 +43,8 @@ export async function visibleProjects(principal: Principal) {
   }
   const { data: projects, error } = await query;
   if (error) throw error;
-  const { data: segments, error: segmentError } = await admin.from("segments").select("id,slug,name").order("name");
+  const { data: segments, error: segmentError } = await admin.from("segments")
+    .select("id,slug,name,sort_order").order("sort_order");
   if (segmentError) throw segmentError;
   const result = [];
   for (const project of projects ?? []) {

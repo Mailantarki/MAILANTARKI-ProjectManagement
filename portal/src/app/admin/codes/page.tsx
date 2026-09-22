@@ -20,7 +20,7 @@ export default async function AdminCodesPage({ searchParams }: { searchParams: P
       .order("created_at", { ascending: false }).range((page - 1) * 25, page * 25 - 1),
     user.from("organizations").select("id,name,archived_at"),
     user.from("projects").select("id,organization_id,name,archived_at"),
-    user.from("segments").select("id,name"),
+    user.from("segments").select("id,name").order("sort_order"),
     user.from("access_code_grants").select("access_code_id,project_id,segment_id"),
   ]);
   if (error) throw new Error("Could not load access codes");

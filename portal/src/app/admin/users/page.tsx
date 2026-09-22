@@ -16,7 +16,7 @@ export default async function AdminUsersPage() {
     user.from("profiles").select("id,organization_id,role,full_name").order("full_name"),
     user.from("organizations").select("id,name,archived_at").order("name"),
     user.from("projects").select("id,name,organization_id,archived_at").order("name"),
-    user.from("segments").select("id,name").order("name"),
+    user.from("segments").select("id,name").order("sort_order"),
     user.from("user_project_access").select("id,user_id,project_id,segment_id,can_download"),
   ]);
   if (error) throw new Error("Could not load users");

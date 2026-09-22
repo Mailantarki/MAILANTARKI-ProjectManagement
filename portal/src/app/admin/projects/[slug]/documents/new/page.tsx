@@ -11,7 +11,7 @@ export default async function NewDocumentsPage({ params }: { params: Promise<{ s
   const user = await getUserClient();
   const { data: project } = await user.from("projects").select("id,name").eq("slug", slug).is("archived_at", null).maybeSingle();
   if (!project) notFound();
-  const { data: segments } = await user.from("segments").select("id,name,slug").order("name");
+  const { data: segments } = await user.from("segments").select("id,name,slug").order("sort_order");
   const allowed = [];
   for (const segment of segments ?? []) {
     if (await authorize(principal, { projectId: project.id, segmentId: segment.id }, "admin_upload")) allowed.push(segment);

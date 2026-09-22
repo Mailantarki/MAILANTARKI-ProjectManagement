@@ -1,10 +1,10 @@
-insert into public.segments (name, slug) values
-  ('Architecture', 'architecture'),
-  ('Structure', 'structure'),
-  ('Sales Plans', 'sales-plans'),
-  ('Mechanical Electrical & Plumbing (MEP)', 'mep'),
-  ('Landscaping', 'landscaping'),
-  ('Interior Design', 'interior-design')
+insert into public.segments (name, slug, sort_order) values
+  ('Architecture', 'architecture', 1),
+  ('Structure', 'structure', 2),
+  ('Mechanical Electrical & Plumbing (MEP)', 'mep', 3),
+  ('Interior Design', 'interior-design', 4),
+  ('Landscaping', 'landscaping', 5),
+  ('Sales Plan', 'sales-plan', 6)
 on conflict (slug) do nothing;
 
 insert into public.organizations (name)

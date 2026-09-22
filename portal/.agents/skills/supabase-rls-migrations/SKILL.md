@@ -35,7 +35,7 @@ aunque el frontend o un endpoint tengan un bug.
 - `documents.upload_status text not null default 'pending' check (upload_status in ('pending','ready'))`
 - `unique (project_id, segment_id, doc_number, revision)` en `documents`
 - `access_codes.code_hash text not null unique`
-- `segments` con exactamente 6 filas fijas (slugs: `architecture`, `structure`, `mep`, `landscaping`, `interior-design`, `sales-plans`)
+- `segments` con exactamente 6 filas fijas y `sort_order` 1–6 (slugs: `architecture`, `structure`, `mep`, `interior-design`, `landscaping`, `sales-plan`)
 
 ## Helpers de permisos
 
