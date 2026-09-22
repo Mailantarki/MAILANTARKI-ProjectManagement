@@ -74,7 +74,7 @@ export async function projectDocuments(principal: Principal, slug: string, filte
   const client = principal.kind === "user" ? await getUserClient() : getAdminClient();
   // Both clients are constrained by the previously authorized project and segment.
   let query = client.from("documents")
-    .select("id,title,doc_number,doc_type,revision,status,issue_date,file_size,segment_id", { count: "exact" })
+    .select("id,title,doc_number,doc_type,revision,status,issue_date,file_size,segment_id,is_featured", { count: "exact" })
     .eq("project_id", project.id).eq("segment_id", segment.id).eq("upload_status", "ready").is("archived_at", null);
   if (filters.type) query = query.eq("doc_type", filters.type);
   if (filters.status) query = query.eq("status", filters.status);
@@ -83,7 +83,8 @@ export async function projectDocuments(principal: Principal, slug: string, filte
   if (filters.to) query = query.lte("issue_date", filters.to);
   if (filters.q) query = query.textSearch("search_vector", filters.q, { type: "websearch", config: "simple" });
   const page = filters.page ?? 1;
-  const { data, count, error } = await query.order("issue_date", { ascending: false, nullsFirst: false })
+  const { data, count, error } = await query.order("is_featured", { ascending: false })
+    .order("issue_date", { ascending: false, nullsFirst: false })
     .order("id", { ascending: true }).range((page - 1) * 25, page * 25 - 1);
   if (error) throw error;
   return { project, segment, documents: data ?? [], count: count ?? 0, page };

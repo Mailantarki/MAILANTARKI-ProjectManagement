@@ -52,7 +52,7 @@ describe("projectDocuments against local Postgres", () => {
         id: ids[index], project_id: project.id, segment_id: row[0], doc_type: row[1], status: row[2],
         revision: row[3], issue_date: row[4], title: row[5], doc_number: row[6],
         file_path: `projects/${project.id}/${row[0] === mep ? "mep" : "architecture"}/${ids[index]}.pdf`,
-        file_size: 123, upload_status: "ready",
+        file_size: 123, upload_status: "ready", is_featured: index === 0,
       })));
       if (insertError) throw insertError;
       const { error: codeError } = await client.from("access_codes").insert({
@@ -84,6 +84,7 @@ describe("projectDocuments against local Postgres", () => {
       await check(visitor, { segment: "architecture", status: "draft" }, [5, 7]);
       await check(visitor, { segment: "all", q: "north" }, [5, 7]);
       await check(admin, { type: "wrong-value", status: "draft" }, [0, 2, 4]);
+      expect((await projectDocuments(admin, slug, {}))?.documents[0].id).toBe(ids[0]);
       expect((await projectDocuments(visitor, slug, {}))?.project.segments.map((s) => s.slug)).toEqual(["mep"]);
     } finally {
       await client.from("access_code_grants").delete().eq("access_code_id", codeId);

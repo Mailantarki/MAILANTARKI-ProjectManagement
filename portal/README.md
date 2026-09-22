@@ -17,6 +17,8 @@ The application supports authenticated teams and read-only visitors with scoped 
 - URL-based document filters and server-side pagination
 - Admin management for organizations, projects, users and assignments
 - PDF upload with metadata validation and controlled finalization
+- Project-level featured documents, ordered first for every authorized viewer
+- Document metadata editing plus soft archive and restore from the admin panel
 - Bulk PDF import from a trusted CLI
 - Access-code creation, revocation and reactivation
 - Audit logs for login, code redemption, viewing and downloading
@@ -197,8 +199,8 @@ npm audit --omit=dev
 
 Current verified baseline:
 
-- 44 TypeScript tests
-- 116 SQL assertions
+- 46 TypeScript tests
+- 118 SQL assertions
 - 7 Playwright browser tests
 - Production dependency audit with no known vulnerabilities at the last local review
 - Full Phase 4 security review approved with one production follow-up
@@ -232,6 +234,7 @@ Cleanup is a trusted server task, not an admin-panel action. It removes the Stor
 - Authorized project/document listings and private PDF viewer
 - Administration for organizations, projects, users, grants, codes and logs
 - Secure individual and bulk PDF upload flows
+- Document metadata editing and project-level featured ordering
 - Archive and restore workflows
 
 ### Remaining

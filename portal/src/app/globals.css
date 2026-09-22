@@ -92,7 +92,35 @@ p { color: #5e6c65; }
 .secret-dialog::backdrop { background: #17201dcc; }
 .secret-code { display: block; font-size: 24px; font-weight: 700; margin: 24px 0; }
 .admin-nav { flex-wrap: wrap; justify-content: flex-end; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.document-admin-actions, .document-controls { display: flex; align-items: center; gap: 6px; }
+.document-admin-actions .admin-form { flex-wrap: nowrap; }
+.document-admin-actions .admin-form .button { min-height: 34px; padding: 0 10px; font-size: 12px; }
+.icon-button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #aabbb3;
+  border-radius: 4px;
+  background: #fff;
+  color: #254b3d;
+}
+.icon-button:hover { border-color: #547d6d; background: #eef5f1; }
+.icon-button.active { border-color: #bd9145; background: #fff7df; color: #9a6508; }
+.document-dialog { width: min(100% - 32px, 680px); padding: 26px; border: 1px solid #aebdb6; border-radius: 6px; color: #17201d; }
+.document-dialog::backdrop { background: rgba(15, 28, 23, .72); }
+.document-dialog h2 { margin: 0; font-size: 22px; }
+.document-edit-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+.document-edit-form .field input,
+.document-edit-form .field select,
+.document-edit-form .field textarea { width: 100%; min-height: 42px; box-sizing: border-box; border: 1px solid #bbc6bf; border-radius: 3px; padding: 8px 10px; background: #fff; color: #17201d; }
+.document-edit-form .field textarea { min-height: 92px; resize: vertical; }
+.document-edit-form .full { grid-column: 1 / -1; }
+.document-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
 @media (max-width: 720px) { .topbar { align-items: start; flex-direction: column; gap: 16px; } .admin-nav { justify-content: flex-start; } .admin-form .field { min-width: 100%; } }
+@media (max-width: 640px) { .document-edit-form { grid-template-columns: 1fr; } .document-edit-form .full { grid-column: auto; } }
 
 /* Project portal */
 :root {
@@ -310,6 +338,7 @@ p { color: #5e6c65; }
 }
 .document-table tbody tr:hover { background: #f7faf8; }
 .document-title { color: var(--portal-ink); font-weight: 650; }
+.featured-star { margin-right: 7px; color: #a46b09; vertical-align: -2px; }
 .document-number { max-width: 240px; color: #34473f; overflow-wrap: anywhere; }
 .document-size { white-space: nowrap; }
 .status-badge {

@@ -63,6 +63,19 @@ test.describe.serial("admin upload transition", () => {
     await expect(page.getByRole("cell", { name: fixture.number }).first()).toBeVisible();
     await page.goto("/admin/projects/maylan-plaza/documents");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    const row = page.getByRole("row", { name: new RegExp(fixture.number) });
+    await row.getByRole("button", { name: "Edit" }).click();
+    const editDialog = page.getByRole("dialog", { name: "Edit document" });
+    await editDialog.getByLabel("Title").fill(`${fixture.number} featured plan`);
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("cell", { name: `${fixture.number} featured plan` })).toBeVisible();
+    await page.getByRole("row", { name: new RegExp(fixture.number) })
+      .getByRole("button", { name: "Feature" }).click();
+    await expect(page.getByRole("row", { name: new RegExp(fixture.number) })
+      .getByTitle("Remove featured status")).toBeVisible();
+    await page.goto("/projects/maylan-plaza");
+    await expect(page.getByRole("row", { name: new RegExp(fixture.number) }).locator(".featured-star")).toBeVisible();
+    await page.goto("/admin/projects/maylan-plaza/documents");
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("row", { name: new RegExp(fixture.number) }).getByRole("button", { name: "Archive" }).click();
     await expect(page.getByRole("heading", { name: "Archived (1)" })).toBeVisible();

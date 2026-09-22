@@ -163,6 +163,18 @@ with removed as (delete from public.documents
   where id = '51000000-0000-0000-0000-000000000001' returning id)
 select is((select count(*) from removed), 0::bigint,
   'authenticated admins cannot physically delete ready documents');
+update public.documents set is_featured = true
+  where id = '51000000-0000-0000-0000-000000000001';
+select is((select is_featured from public.documents
+  where id = '51000000-0000-0000-0000-000000000001'), true,
+  'project admin can feature a document in the managed project');
+select set_config('request.jwt.claim.sub', '41000000-0000-0000-0000-000000000004', true);
+with changed as (
+  update public.documents set is_featured = false
+  where id = '51000000-0000-0000-0000-000000000001' returning id
+) select is((select count(*) from changed), 0::bigint,
+  'member cannot change project featured status');
+select set_config('request.jwt.claim.sub', '41000000-0000-0000-0000-000000000002', true);
 insert into public.documents (id, project_id, segment_id, title, doc_number, doc_type, file_size)
   values ('51000000-0000-0000-0000-000000000005', '31000000-0000-0000-0000-000000000001',
     (select id from public.segments where slug = 'architecture'),

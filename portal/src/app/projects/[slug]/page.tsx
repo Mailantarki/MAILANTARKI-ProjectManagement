@@ -4,7 +4,7 @@ import { getPrincipal } from "../../../lib/auth/principal";
 import { parseFilters, projectDocuments } from "../../../lib/documents/list";
 import { copy } from "../../../lib/copy";
 import { PdfViewerLauncher } from "../../../components/pdf/launcher";
-import { ArrowLeft, LogOut, MapPin } from "lucide-react";
+import { ArrowLeft, LogOut, MapPin, Star } from "lucide-react";
 import { signOut } from "../sign-out";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +41,7 @@ export default async function ProjectPage({ params, searchParams }: Props) {
       </form>
       <div className="results-count">{count} documents · {segment.name}</div>
       <div className="table-scroll"><table className="document-table"><thead><tr><th>Title</th><th>Number</th><th>Type</th><th>Revision</th><th>Status</th><th>Date</th><th>Size</th><th></th></tr></thead><tbody>
-        {documents.map((doc) => <tr key={doc.id}><td className="document-title">{doc.title}</td><td className="document-number">{doc.doc_number}</td><td>{doc.doc_type}</td><td>{doc.revision}</td><td><span className={`status-badge status-${doc.status}`}>{doc.status.replaceAll("_", " ")}</span></td><td>{doc.issue_date ?? "-"}</td><td className="document-size">{(doc.file_size / 1048576).toFixed(1)} MB</td><td><PdfViewerLauncher documentId={doc.id} /></td></tr>)}
+        {documents.map((doc) => <tr key={doc.id}><td className="document-title">{doc.is_featured && <Star className="featured-star" size={14} fill="currentColor" aria-label="Featured" />}{doc.title}</td><td className="document-number">{doc.doc_number}</td><td>{doc.doc_type}</td><td>{doc.revision}</td><td><span className={`status-badge status-${doc.status}`}>{doc.status.replaceAll("_", " ")}</span></td><td>{doc.issue_date ?? "-"}</td><td className="document-size">{(doc.file_size / 1048576).toFixed(1)} MB</td><td><PdfViewerLauncher documentId={doc.id} /></td></tr>)}
       </tbody></table></div>
       {!documents.length && <div className="empty-results">No documents match these filters. <Link href={`/projects/${slug}?segment=${segment.slug}`}>Clear filters</Link></div>}
       {count > 25 && <nav className="pagination" aria-label="Pages">{page > 1 && <Link href={href({ page: String(page - 1) })}>Previous</Link>}<span>Page {page} of {Math.ceil(count / 25)}</span>{page * 25 < count && <Link href={href({ page: String(page + 1) })}>Next</Link>}</nav>}
