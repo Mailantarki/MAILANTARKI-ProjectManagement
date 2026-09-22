@@ -156,6 +156,11 @@ p { color: #5e6c65; }
   font-size: 13px;
 }
 .topbar-action:hover { color: var(--portal-action); }
+.topbar-links { display: flex; align-items: center; gap: 24px; }
+.project-admin-toolbar { display: flex; justify-content: flex-end; gap: 10px; padding: 18px clamp(28px, 6vw, 92px) 0; }
+.project-admin-toolbar a { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #8bb8ad; color: #174f41; background: #fff; text-decoration: none; font-weight: 700; }
+.project-admin-toolbar a:hover { border-color: #174f41; background: #f4faf7; }
+.table-actions { display: flex; align-items: center; gap: 16px; }
 .projects-index {
   width: min(100% - 48px, 1240px);
   margin: 0 auto;
@@ -381,6 +386,8 @@ p { color: #5e6c65; }
 @media (max-width: 640px) {
   .project-shell .topbar { min-height: 60px; padding: 0 20px; flex-direction: row; align-items: center; }
   .topbar-action svg { display: none; }
+  .topbar-links { gap: 14px; }
+  .project-admin-toolbar { justify-content: flex-start; padding: 14px 20px 0; flex-wrap: wrap; }
   .projects-index { width: min(100% - 32px, 1240px); padding: 42px 0 70px; }
   .projects-index h1 { margin-bottom: 26px; font-size: 34px; }
   .project-grid { grid-template-columns: 1fr; gap: 12px; }

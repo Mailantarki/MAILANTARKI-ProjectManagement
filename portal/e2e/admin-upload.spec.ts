@@ -60,6 +60,9 @@ test.describe.serial("admin upload transition", () => {
     expect(document.upload_status).toBe("ready");
     expect(document.file_size).toBe(bytes.length);
     await page.goto("/projects/maylan-plaza");
+    await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Manage documents" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Upload PDFs" })).toBeVisible();
     await expect(page.getByRole("cell", { name: fixture.number }).first()).toBeVisible();
     await page.goto("/admin/projects/maylan-plaza/documents");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();

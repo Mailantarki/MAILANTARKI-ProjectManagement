@@ -4,7 +4,8 @@ import { getPrincipal } from "../../../lib/auth/principal";
 import { parseFilters, projectDocuments } from "../../../lib/documents/list";
 import { copy } from "../../../lib/copy";
 import { PdfViewerLauncher } from "../../../components/pdf/launcher";
-import { ArrowLeft, LogOut, MapPin, Star } from "lucide-react";
+import { isAdminPrincipal } from "../../../lib/auth/authorize";
+import { ArrowLeft, FilePenLine, LogOut, MapPin, Settings, Star, Upload } from "lucide-react";
 import { signOut } from "../sign-out";
 
 export const dynamic = "force-dynamic";
@@ -23,12 +24,20 @@ export default async function ProjectPage({ params, searchParams }: Props) {
     for (const [key, value] of Object.entries({ ...filters, ...patch })) if (value !== undefined && value !== "") next.set(key, String(value));
     return `/projects/${slug}?${next}`;
   };
-  return <div className="shell project-shell"><header className="topbar"><Link className="brand" href="/projects">{copy.brand}</Link><form action={signOut}><button className="topbar-action" type="submit"><LogOut size={15} aria-hidden />{copy.signOut}</button></form></header>
+  const canManage = isAdminPrincipal(principal);
+  return <div className="shell project-shell"><header className="topbar"><Link className="brand" href="/projects">{copy.brand}</Link><div className="topbar-links">
+    {canManage && <Link className="topbar-action" href="/admin"><Settings size={15} aria-hidden />Admin</Link>}
+    <form action={signOut}><button className="topbar-action" type="submit"><LogOut size={15} aria-hidden />{copy.signOut}</button></form>
+  </div></header>
     <main className="portal project-detail">
       <section className={`project-hero${project.coverImageUrl ? " has-image" : ""}`} style={project.coverImageUrl ? { backgroundImage: `url("${project.coverImageUrl}")` } : undefined}>
         <Link className="back-link" href="/projects"><ArrowLeft size={15} aria-hidden />All projects</Link>
         <div className="project-heading"><h1>{project.name}</h1><p><MapPin size={16} aria-hidden />{project.location}</p></div>
       </section>
+      {canManage && <nav className="project-admin-toolbar" aria-label="Project administration">
+        <Link href={`/admin/projects/${slug}/documents`}><FilePenLine size={16} aria-hidden />Manage documents</Link>
+        <Link href={`/admin/projects/${slug}/documents/new`}><Upload size={16} aria-hidden />Upload PDFs</Link>
+      </nav>}
       <nav className="segment-tabs" aria-label="Disciplines">{project.segments.map((item) => <Link key={item.id} className={item.id === segment.id ? "active" : ""} href={href({ segment: item.slug, page: undefined })}>{item.name} <span>{item.count}</span></Link>)}</nav>
       <form className="filters" method="get"><input type="hidden" name="segment" value={segment.slug} />
         <label>Search<input name="q" defaultValue={filters.q ?? ""} placeholder="Title or document number" /></label>
