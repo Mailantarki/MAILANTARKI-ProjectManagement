@@ -1,7 +1,9 @@
 # MAILANTARKI.COM Technical Documentation Portal
 
-Phases 2 and 3 add the Next.js App Router shell, authentication, visitor codes,
-authorized project and document listings, and a signed-URL PDF viewer. Admin UI is not built yet.
+Phases 2 and 3 provide authentication, visitor codes, authorized listings and a
+private PDF viewer. Phase 4 is in progress: guarded admin overview, bulk CLI import
+and individual PDF upload exist. Organization/project management, users and grants,
+code management, logs/CSV and archive controls remain to be built.
 The domain `mailantarki.com` is planned, not configured.
 
 ## Local setup
@@ -121,9 +123,9 @@ the title is `FLOOR TYPE 1-A` and the number is `MAURITIUS-FLOOR-TYPE-1-A`.
 The existing Mauritius numbers are intentionally unchanged, so rerunning this import
 skips the 22 ready documents. The authenticated user inserts and finalizes metadata
 under RLS; service role only signs and uploads the private object. Interrupted pending
-rows are reused on retry; failures are reported without deleting the historical row.
-The `pending -> ready` transition uses the authenticated `finalize_document_upload`
-RPC, never a direct client update or service-role metadata write.
+rows with an already-uploaded object are validated and finalized on retry.
+The `pending -> ready` transition uses the server-only `finalize_document_upload`
+RPC after byte validation; it checks Storage object existence and actual size.
 The default type `plan`, revision `0` and status `draft` need review against the actual
 drawing history before the documents are treated as published project records. The
 source files stay outside the repository. The old service-role Mauritius script is
@@ -133,8 +135,8 @@ disabled. A database reset removes local imports; rerun the CLI after `npm test`
 documented sibling path, and installed Playwright Chromium
 (`npx playwright install chromium`). It builds and starts its own app at port 3107,
 creates a temporary member, segment grants and visitor code, seeds two generated
-PDFs plus one actual Mauritius PDF, checks three browser flows, and removes all
-test objects, rows, logs and the user.
+PDFs plus one actual Mauritius PDF, checks three browser flows, and removes the
+temporary objects, rows and user. Audit logs remain intact.
 Stop any separate `next dev` process in this checkout before running it, since both
 commands write `.next`. The filter integration suite in `npm test` creates and
 removes its own eight-document project independently of the local PDF import.
@@ -156,12 +158,14 @@ Admin writes to `organizations`, `projects`, `documents`, `profiles`,
 user client and RLS. `service_role` is restricted to Storage/signed URLs, atomic
 redemption and persistent rate limiting, Auth user creation with the matching initial
 profile insert from trusted CLI scripts, `access_logs` insertion, read-only
-authorization lookups, and controlled cleanup. It is not used for ordinary admin
-metadata writes or access-code creation.
+authorization lookups, controlled cleanup, and the narrow server-only
+`finalize_document_upload` RPC. Ordinary admin metadata writes and code creation
+still use the authenticated client under RLS.
 
-`organizations`, `projects`, and `documents` are archived by setting `archived_at`.
-A trigger sets the timestamp and actor. The app has no physical DELETE permission on
-these tables. Project foreign keys restrict physical deletion, while deleting a
+`organizations`, `projects`, and ready `documents` are archived by setting `archived_at`.
+A trigger sets the timestamp and actor. The app cannot physically delete organizations,
+projects or ready documents; a project admin may delete only unfinished `pending`
+metadata when canceling a failed upload. Project foreign keys restrict physical deletion, while deleting a
 document after retention sets `access_logs.document_id` to null and retains title,
 number and project-name snapshots. The original migration is unchanged; later
 schema adjustments are separate, versioned migrations.
@@ -174,7 +178,8 @@ migration; RLS does not protect `TRUNCATE`.
 ## Archived PDF cleanup
 
 The cleanup task uses only the server-side `SUPABASE_SERVICE_ROLE_KEY`. It selects
-documents archived more than 30 days ago, removes each object from the private
+documents archived more than 30 days ago and pending uploads older than one hour,
+removes each object from the private
 `documents` bucket, then deletes its metadata row. The log snapshot remains. A failed
 Storage removal leaves the row for a later retry. Run it from a trusted terminal or
 scheduled server job, never from a browser or public route:
@@ -188,6 +193,7 @@ npm run cleanup:archived -- --execute --limit=25
 The first command is a dry-run. Each invocation processes at most 100 documents.
 Configure `.env.local` first. A scheduled run should alert on nonzero exit status.
 Only document IDs are printed; object paths and credentials are not logged.
+The same command also purges interrupted `pending` uploads older than one hour.
 
 ## Verification and remaining work
 

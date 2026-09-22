@@ -22,16 +22,23 @@ const supabase = createClient(url, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 const cutoff = new Date(Date.now() - 30 * DAY_MS).toISOString();
-const { data: candidates, error: listError } = await supabase
+const pendingCutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+const { data: archived, error: listError } = await supabase
   .from("documents")
-  .select("id,project_id,file_path,archived_at")
+  .select("id,project_id,file_path,archived_at,upload_status,created_at")
   .lt("archived_at", cutoff)
   .order("archived_at", { ascending: true })
   .limit(limit);
 
 if (listError) throw new Error(`Could not list archived documents: ${listError.message}`);
+const { data: pending, error: pendingError } = await supabase.from("documents")
+  .select("id,project_id,file_path,archived_at,upload_status,created_at")
+  .eq("upload_status", "pending").lt("created_at", pendingCutoff)
+  .order("created_at", { ascending: true }).limit(limit);
+if (pendingError) throw new Error(`Could not list pending documents: ${pendingError.message}`);
+const candidates = [...new Map([...archived, ...pending].map((candidate) => [candidate.id, candidate])).values()].slice(0, limit);
 
-console.log(`${candidates.length} archived document(s) older than 30 days; mode: ${execute ? "execute" : "dry-run"}`);
+console.log(`${candidates.length} archived or stale pending document(s); mode: ${execute ? "execute" : "dry-run"}`);
 let failed = 0;
 
 for (const candidate of candidates) {
@@ -64,7 +71,7 @@ for (const candidate of candidates) {
     .from("documents")
     .delete()
     .eq("id", candidate.id)
-    .lt("archived_at", cutoff)
+    .or(`archived_at.lt.${cutoff},and(upload_status.eq.pending,created_at.lt.${pendingCutoff})`)
     .select("id");
   if (deleteError || deleted?.length !== 1) {
     failed += 1;

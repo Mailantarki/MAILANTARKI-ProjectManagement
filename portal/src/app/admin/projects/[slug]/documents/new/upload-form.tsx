@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
-import { finalizeUpload, prepareUpload } from "./actions";
+import { cancelUpload, finalizeUpload, prepareUpload } from "./actions";
 
 type Segment = { id: string; name: string; slug: string };
 type Row = {
@@ -23,6 +23,7 @@ export function UploadForm({ projectId, segments }: { projectId: string; segment
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const pendingTickets = useRef(new Map<string, string>());
   const update = (id: string, patch: Partial<Row>) => setRows((old) => old.map((row) => row.id === id ? { ...row, ...patch } : row));
   const add = (files: FileList | File[]) => setRows((old) => [...old, ...Array.from(files).map((file) => fromFile(file, segments[0].id))]);
 
@@ -34,16 +35,23 @@ export function UploadForm({ projectId, segments }: { projectId: string; segment
     if (magic !== "%PDF-") { update(row.id, { phase: "Rejected", error: "Invalid PDF" }); return; }
     try {
       update(row.id, { phase: "Preparing", error: undefined });
+      const previous = pendingTickets.current.get(row.id);
+      if (previous) {
+        await cancelUpload(previous);
+        pendingTickets.current.delete(row.id);
+      }
       const ticket = await prepareUpload({ projectId, segmentId: row.segmentId,
         title: row.title, docNumber: row.docNumber, docType: row.docType, revision: row.revision,
         status: row.status, issueDate: row.issueDate || null, description: row.description,
         fileSize: row.file.size });
+      pendingTickets.current.set(row.id, ticket.docId);
       update(row.id, { phase: "Uploading" });
       const { error } = await getBrowserClient().storage.from("documents")
         .uploadToSignedUrl(ticket.path, ticket.token, row.file, { contentType: "application/pdf" });
-      if (error) throw new Error("Upload failed; retry after the pending record is cleaned up");
+      if (error) throw new Error("Upload failed; retry to replace the unfinished attempt");
       update(row.id, { phase: "Validating" });
       await finalizeUpload(ticket.docId);
+      pendingTickets.current.delete(row.id);
       update(row.id, { phase: "Complete" });
     } catch (error) {
       update(row.id, { phase: "Failed", error: error instanceof Error ? error.message : "Upload failed" });

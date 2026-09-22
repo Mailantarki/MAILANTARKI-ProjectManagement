@@ -71,11 +71,13 @@ async function main() {
   let uploaded = 0;
   let duplicates = 0;
   for (const file of files) {
-    const { data: existing, error: findError } = await user.from("documents").select("id,upload_status")
+    const { data: matches, error: findError } = await user.from("documents").select("id,upload_status")
       .eq("project_id", project.id).eq("segment_id", segment.id)
-      .eq("doc_number", file.metadata.docNumber).eq("revision", "0").maybeSingle();
+      .eq("doc_number", file.metadata.docNumber).eq("revision", "0")
+      .is("archived_at", null).order("created_at", { ascending: false });
     if (findError) throw new Error(`Lookup failed: ${findError.message}`);
-    if (existing?.upload_status === "ready") { duplicates++; continue; }
+    if (matches?.some((match) => match.upload_status === "ready")) { duplicates++; continue; }
+    const existing = matches?.[0];
     const id = existing?.id ?? randomUUID();
     const path = `projects/${project.id}/${segment.slug}/${id}.pdf`;
     if (!existing) {
@@ -86,9 +88,12 @@ async function main() {
       });
       if (error) throw new Error(error.code === "23505" ? `Duplicate document: ${file.metadata.docNumber}` : `Insert failed: ${error.message}`);
     }
+    const storage = admin.storage.from("documents");
+    const { data: object, error: infoError } = await storage.info(path);
+    if (infoError && !infoError.message.toLowerCase().includes("not found"))
+      throw new Error(`${file.name}: could not inspect existing upload`);
     let errorMessage = "Upload failed";
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const storage = admin.storage.from("documents");
+    if (!object) for (let attempt = 0; attempt < 3; attempt++) {
       const { data: ticket, error: ticketError } = await storage.createSignedUploadUrl(path);
       if (ticketError || !ticket) { errorMessage = ticketError?.message ?? "Could not sign upload"; continue; }
       const { error: uploadError } = await storage.uploadToSignedUrl(path, ticket.token, file.bytes,
@@ -97,9 +102,18 @@ async function main() {
       errorMessage = uploadError.message;
       if (uploadError.message.includes("already exists")) break;
     }
+    else errorMessage = "";
     if (errorMessage) throw new Error(`${file.name}: ${errorMessage}; pending row retained for retry`);
-    const { error: readyError } = await user.rpc("finalize_document_upload", {
-      p_document_id: id, p_file_size: file.bytes.length,
+    const { data: uploadedObject, error: uploadedInfoError } = await storage.info(path);
+    if (uploadedInfoError || !uploadedObject || uploadedObject.size !== file.bytes.length)
+      throw new Error(`${file.name}: uploaded object size mismatch; pending row retained`);
+    const { data: signed, error: signedError } = await storage.createSignedUrl(path, 60);
+    if (signedError || !signed) throw new Error(`${file.name}: could not inspect uploaded PDF`);
+    const response = await fetch(signed.signedUrl, { headers: { Range: "bytes=0-4" }, cache: "no-store" });
+    if (response.status !== 206 || new TextDecoder().decode(await response.arrayBuffer()) !== "%PDF-")
+      throw new Error(`${file.name}: uploaded object is not a valid PDF; pending row retained`);
+    const { error: readyError } = await admin.rpc("finalize_document_upload", {
+      p_document_id: id, p_file_size: uploadedObject.size,
     });
     if (readyError) throw new Error(`${file.name}: finalization failed; pending row retained: ${readyError.message}`);
     uploaded++;

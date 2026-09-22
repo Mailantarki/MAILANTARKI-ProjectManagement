@@ -40,7 +40,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     const hash = createHmac("sha256", process.env.ACCESS_CODE_PEPPER!)
       .update(fixture.code.replace("-", "")).digest("hex");
     const code = await required(admin.from("access_codes").insert({ organization_id: project.organization_id,
-      code_hash: hash, label: "E2E visitor", allow_download: false, max_uses: 1,
+      code_hash: hash, label: `E2E visitor ${fixture.email}`, allow_download: false, max_uses: 1,
       expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() }).select("id").single());
     fixture.codeId = code.id;
     await required(admin.from("access_code_grants").insert({ access_code_id: code.id,
@@ -62,8 +62,6 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
   });
 
   test.afterAll(async () => {
-    if (fixture.userId) await required(admin.from("access_logs").delete().eq("user_id", fixture.userId).select("id"));
-    if (fixture.codeId) await required(admin.from("access_logs").delete().eq("access_code_id", fixture.codeId).select("id"));
     if (fixture.documents.length) {
       const rows = await required(admin.from("documents").select("file_path").in("id", fixture.documents));
       const { error: storageError } = await admin.storage.from("documents").remove(rows.map((r) => r.file_path));
@@ -72,11 +70,11 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     }
     if (fixture.codeId) {
       await required(admin.from("access_code_grants").delete().eq("access_code_id", fixture.codeId).select("id"));
-      await required(admin.from("access_codes").delete().eq("id", fixture.codeId).select("id"));
+      await required(admin.from("access_codes").update({ is_active: false }).eq("id", fixture.codeId).select("id"));
     }
     if (fixture.userId) {
       await required(admin.from("user_project_access").delete().eq("user_id", fixture.userId).select("id"));
-      const { error } = await admin.auth.admin.deleteUser(fixture.userId);
+      const { error } = await admin.auth.admin.deleteUser(fixture.userId, true);
       if (error) throw error;
     }
   });

@@ -70,11 +70,14 @@ supabase/seed.sql
     inicial con service role; los endpoints usan service role para canje atómico, rate
     limit persistente y `access_logs`. La creación de códigos usa cliente autenticado y RLS.
     La única transición de `documents.upload_status` de `pending` a `ready` usa
-    `finalize_document_upload(id, size)`: RPC `security definer` invocado con el cliente
-    `authenticated`, con `is_project_admin` reconfirmado dentro. No usa `service_role`.
-    La columna no es actualizable directamente por clientes autenticados.
-11. `organizations`, `projects` y `documents` se archivan con `archived_at`; la app no los
-    borra físicamente. Los documentos archivados permanecen 30 días antes de la limpieza
+    `finalize_document_upload(id, size)`: RPC `security definer` ejecutable solo por
+    `service_role`, después de autorizar con el cliente del usuario y validar bytes y
+    tamaño desde Storage. El RPC reconfirma objeto y tamaño en `storage.objects`.
+    Es una excepción acotada a las escrituras de service role; `authenticated` no
+    puede invocarlo ni actualizar directamente `upload_status`.
+11. `organizations`, `projects` y documentos `ready` se archivan con `archived_at`;
+    solo los `pending` del proyecto pueden cancelarse (DELETE sujeto a RLS). Los
+    documentos archivados permanecen 30 días antes de la limpieza
     de Storage con `--execute`. Los logs conservan snapshots del documento y proyecto.
 
 ## Flujo de trabajo

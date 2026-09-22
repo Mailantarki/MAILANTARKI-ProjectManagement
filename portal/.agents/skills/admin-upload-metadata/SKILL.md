@@ -48,17 +48,20 @@ deben crearse solo después de `authorize()`.
 1. Confirmar que el usuario es admin del proyecto del documento.
 2. Verificar que el objeto existe y obtener su tamaño real (no confiar en el tamaño que informó el cliente).
 3. Verificar los magic bytes: pedir una signed URL de descarga corta y leer los primeros bytes con
-   `Range: bytes=0-4`; deben ser `%PDF-`. Si no coinciden, borrar objeto y fila y devolver error.
+   `Range: bytes=0-4`; deben ser `%PDF-`. Si no coinciden, borrar el objeto y dejar
+   la fila `pending` para cancelar el intento o purgarla tras una hora.
 4. Rechazar si supera el límite (50 MB, configurable en una constante).
-5. Invocar `finalize_document_upload(docId, fileSize)` con el cliente autenticado del
-   usuario. Es un RPC `security definer` limitado al flip `pending -> ready`, que
-   reconfirma `is_project_admin` dentro. El cliente no tiene permiso de UPDATE sobre
-   `upload_status` ni puede eludir la validación por escritura directa. Si el RPC
+5. Invocar `finalize_document_upload(docId, fileSize)` solo con el cliente admin
+   de servidor, después de autorizar al usuario y verificar bytes y tamaño reales.
+   Es un RPC `security definer` ejecutable solo por `service_role`, limitado al flip
+   `pending -> ready`. También verifica objeto y tamaño en `storage.objects`.
+   `authenticated` no puede ejecutarlo ni actualizar `upload_status`. Si el RPC
    devuelve `invalid_status_transition`, tratarlo como finalización concurrente.
    Solo después del RPC aparece el documento en el portal.
 
-Los documentos en `pending` por más de 1 hora son basura de subidas interrumpidas: dejar una función
-o tarea programada (cron de Supabase) que borre fila y objeto.
+Los documentos en `pending` por más de 1 hora se purgan con la tarea server-only
+`npm run cleanup:archived -- --execute`, que borra primero objeto y luego fila.
+Un reintento desde la UI cancela su preparación anterior con `cancelUpload`.
 
 ## Metadatos (schema zod)
 
@@ -68,7 +71,7 @@ Campos: `projectId` (uuid), `segmentId` (uuid), `title` (1–200), `docNumber` (
 `issueDate` (fecha), `description` (opcional, hasta 1000).
 
 - Validar en el cliente para dar feedback rápido y SIEMPRE otra vez en el servidor.
-- Unicidad `(project_id, segment_id, doc_number, revision)`: si choca, mostrar un error claro y ofrecer
+- Unicidad de documentos `ready` no archivados por `(project_id, segment_id, doc_number, revision)`: si choca, mostrar un error claro y ofrecer
   subir como nueva revisión.
 - Carga múltiple: tabla editable con una fila por archivo; permitir aplicar proyecto/segmento a todas
   las filas a la vez. Intentar autocompletar `title`/`docNumber` desde el nombre del archivo, pero

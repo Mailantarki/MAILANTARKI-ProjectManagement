@@ -8,6 +8,8 @@ select set_config('test.initial_log_count',
   (select count(*)::text from public.access_logs), true);
 select set_config('test.initial_profile_count',
   (select count(*)::text from public.profiles), true);
+select set_config('test.initial_code_count',
+  (select count(*)::text from public.access_codes), true);
 
 insert into public.organizations (id, name) values
   ('11000000-0000-0000-0000-000000000001', 'RLS Test A'),
@@ -70,7 +72,8 @@ select is((select count(*) from public.projects), 8::bigint, 'super admin reads 
 select is((select count(*) from public.documents),
   current_setting('test.initial_document_count')::bigint + 2,
   'super admin reads all documents including the fixture');
-select is((select count(*) from public.access_codes), 2::bigint, 'super admin reads all codes');
+select is((select count(*) from public.access_codes),
+  current_setting('test.initial_code_count')::bigint + 2, 'super admin reads all codes');
 select is((select count(*) from public.access_code_grants), 2::bigint, 'super admin reads all grants');
 select is((select count(*) from public.access_logs),
   current_setting('test.initial_log_count')::bigint + 1,
@@ -156,8 +159,18 @@ select throws_ok(
     values ('51000000-0000-0000-0000-000000000004', '31000000-0000-0000-0000-000000000002',
       (select id from public.segments where slug = 'mep'), 'Wrong Tenant', 'MEP-203', 'plan', 10)$$,
   '42501', null, 'org admin cannot write another organization documents');
-select throws_ok('delete from public.documents where id = ''51000000-0000-0000-0000-000000000001''',
-  '42501', null, 'authenticated admins cannot physically delete documents');
+with removed as (delete from public.documents
+  where id = '51000000-0000-0000-0000-000000000001' returning id)
+select is((select count(*) from removed), 0::bigint,
+  'authenticated admins cannot physically delete ready documents');
+insert into public.documents (id, project_id, segment_id, title, doc_number, doc_type, file_size)
+  values ('51000000-0000-0000-0000-000000000005', '31000000-0000-0000-0000-000000000001',
+    (select id from public.segments where slug = 'architecture-structure'),
+    'Unfinished upload', 'ARC-PENDING', 'plan', 10);
+with removed as (delete from public.documents
+  where id = '51000000-0000-0000-0000-000000000005' returning id)
+select is((select count(*) from removed), 1::bigint,
+  'project admin may cancel pending metadata');
 select throws_ok('delete from public.projects where id = ''31000000-0000-0000-0000-000000000001''',
   '42501', null, 'authenticated admins cannot physically delete projects');
 select throws_ok('delete from public.organizations where id = ''11000000-0000-0000-0000-000000000001''',

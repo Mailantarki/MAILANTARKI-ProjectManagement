@@ -75,10 +75,33 @@ export async function finalizeUpload(input: unknown) {
   }
   if (header.length !== 5 || new TextDecoder().decode(header) !== "%PDF-") await rejectFile();
 
-  const { error: finalizeError } = await user.rpc("finalize_document_upload", {
+  const { error: finalizeError } = await getAdminClient().rpc("finalize_document_upload", {
     p_document_id: docId, p_file_size: object.size!,
   });
   if (finalizeError) throw new Error(finalizeError.message.includes("invalid_status_transition")
     ? "Document was already finalized" : "Could not finalize upload");
   return { docId };
+}
+
+export async function cancelUpload(input: unknown) {
+  const docId = z.uuid().parse(input);
+  const principal = await getPrincipal();
+  if (!principal || principal.kind !== "user") throw new Error("Not authorized");
+  const user = await getUserClient();
+  const { data: document } = await user.from("documents")
+    .select("id,project_id,segment_id,upload_status").eq("id", docId).maybeSingle();
+  if (!document || !(await authorize(principal,
+    { projectId: document.project_id, segmentId: document.segment_id }, "admin_upload"))) {
+    throw new Error("Document not found");
+  }
+  if (document.upload_status !== "pending") throw new Error("Document is no longer pending");
+  const { data: segment } = await user.from("segments").select("slug").eq("id", document.segment_id).single();
+  if (!segment) throw new Error("Invalid segment");
+  const path = `projects/${document.project_id}/${segment.slug}/${docId}.pdf`;
+  const storage = getAdminClient().storage.from("documents");
+  const { error: removeError } = await storage.remove([path]);
+  if (removeError) throw new Error("Could not remove unfinished upload");
+  const { error: deleteError } = await user.from("documents").delete()
+    .eq("id", docId).eq("upload_status", "pending");
+  if (deleteError) throw new Error("Could not cancel unfinished upload");
 }

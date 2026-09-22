@@ -4,10 +4,11 @@ import { PDFDocument } from "pdf-lib";
 import { admin, createAuthProfile } from "../scripts/cli-common";
 
 const fixture = {
-  userId: "", documentId: "", projectId: "",
+  userId: "", documentId: "", retryDocumentId: "", projectId: "",
   email: `upload-${randomBytes(8).toString("hex")}@example.test`,
   password: randomBytes(24).toString("base64url"),
   number: `UPLOAD-${randomBytes(6).toString("hex").toUpperCase()}`,
+  retryNumber: `RETRY-${randomBytes(6).toString("hex").toUpperCase()}`,
 };
 
 test.describe.serial("admin upload transition", () => {
@@ -21,11 +22,11 @@ test.describe.serial("admin upload transition", () => {
   });
 
   test.afterAll(async () => {
-    if (fixture.documentId) {
+    for (const documentId of [fixture.documentId, fixture.retryDocumentId].filter(Boolean)) {
       const { data: document } = await admin.from("documents").select("file_path")
-        .eq("id", fixture.documentId).single();
+        .eq("id", documentId).single();
       if (document) await admin.storage.from("documents").remove([document.file_path]);
-      await admin.from("documents").delete().eq("id", fixture.documentId);
+      await admin.from("documents").delete().eq("id", documentId);
     }
     if (fixture.userId) {
       const { error } = await admin.auth.admin.deleteUser(fixture.userId, true);
@@ -60,5 +61,36 @@ test.describe.serial("admin upload transition", () => {
     expect(document.file_size).toBe(bytes.length);
     await page.goto("/projects/maylan-plaza");
     await expect(page.getByRole("cell", { name: fixture.number }).first()).toBeVisible();
+  });
+
+  test("failed Storage upload can be retried without pending metadata", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(fixture.email);
+    await page.getByLabel("Password").fill(fixture.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/projects$/);
+    await page.goto("/admin/projects/maylan-plaza/documents/new");
+    const pdf = await PDFDocument.create();
+    pdf.addPage([300, 300]);
+    const bytes = Buffer.from(await pdf.save());
+    await page.locator('input[type="file"]').setInputFiles({
+      name: `${fixture.retryNumber}.pdf`, mimeType: "application/pdf", buffer: bytes,
+    });
+    let interrupted = false;
+    await page.route("**/storage/v1/object/upload/sign/**", async (route) => {
+      if (!interrupted) { interrupted = true; await route.abort(); }
+      else await route.continue();
+    });
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("Failed");
+    expect(interrupted).toBe(true);
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText("Complete");
+    const { data, error } = await admin.from("documents").select("id,upload_status")
+      .eq("project_id", fixture.projectId).eq("doc_number", fixture.retryNumber);
+    if (error) throw error;
+    expect(data).toHaveLength(1);
+    expect(data![0].upload_status).toBe("ready");
+    fixture.retryDocumentId = data![0].id;
   });
 });
