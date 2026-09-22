@@ -31,7 +31,7 @@ export function parseFilters(input: Record<string, string | string[] | undefined
 export async function visibleProjects(principal: Principal) {
   const admin = getAdminClient();
   const client = principal.kind === "user" ? await getUserClient() : admin;
-  let query = client.from("projects").select("id,slug,name,location,organization_id,archived_at")
+  let query = client.from("projects").select("id,slug,name,location,cover_image_url,organization_id,archived_at")
     .is("archived_at", null).order("name");
   if (principal.kind === "visitor") {
     const { data: grants, error } = await admin.from("access_code_grants")
@@ -60,6 +60,7 @@ export async function visibleProjects(principal: Principal) {
       counts.push({ ...segment, count: count ?? 0 });
     }
     result.push({ id: project.id, slug: project.slug, name: project.name, location: project.location,
+      coverImageUrl: project.cover_image_url,
       segments: counts, count: counts.reduce((sum, item) => sum + item.count, 0) });
   }
   return result;
