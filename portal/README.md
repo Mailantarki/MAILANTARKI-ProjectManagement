@@ -8,7 +8,7 @@ The application supports authenticated teams and read-only visitors with scoped 
 
 ## Features
 
-- Six seeded MAILANTARKI projects and four shared disciplines
+- Six seeded MAILANTARKI projects and six shared disciplines
 - Email/password authentication with role-based access
 - Read-only visitor access through revocable, expiring codes
 - Project and discipline-level permissions
@@ -145,7 +145,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Seed Data
 
-The database seed creates the `MAILANTARKI.COM` organization, four disciplines and these projects:
+The database seed creates the `MAILANTARKI.COM` organization, six disciplines and these projects:
 
 1. MAILANTARKI Sports Complex, Dakibiyu
 2. Maylan Plaza, Asokoro
@@ -163,7 +163,7 @@ The admin upload flow creates pending metadata, uploads to private Storage, vali
 For local test data:
 
 ```bash
-npx tsx scripts/seed-test-document.ts --segment architecture-structure
+npx tsx scripts/seed-test-document.ts --segment architecture
 npx tsx scripts/seed-test-document.ts ./drawing.pdf --project maylan-plaza --segment interior-design
 ```
 
@@ -177,7 +177,7 @@ An authenticated admin can import a directory of PDFs:
 npx tsx scripts/bulk-import.ts \
   --directory "../pdf/MAURITIUS ARCHIVE" \
   --project mauritius-golf-estate \
-  --segment architecture-structure
+  --segment architecture
 ```
 
 The importer validates the full batch before writing, enforces a 50 MB limit, derives normalized metadata and safely skips ready duplicates. Source PDFs remain outside Git.
@@ -198,7 +198,7 @@ npm audit --omit=dev
 Current verified baseline:
 
 - 44 TypeScript tests
-- 110 SQL assertions
+- 115 SQL assertions
 - 7 Playwright browser tests
 - Production dependency audit with no known vulnerabilities at the last local review
 - Full Phase 4 security review approved with one production follow-up

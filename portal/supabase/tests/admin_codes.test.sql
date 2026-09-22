@@ -33,10 +33,10 @@ select set_config('request.jwt.claim.sub','44000000-0000-0000-0000-000000000001'
 select lives_ok($$select public.create_access_code_with_grants(
   '14000000-0000-0000-0000-000000000001',repeat('d',64),'Architecture only',null,1,false,
   jsonb_build_array(jsonb_build_object('project_id','34000000-0000-0000-0000-000000000001',
-    'segment_id',(select id from public.segments where slug='architecture-structure'))))$$,
+    'segment_id',(select id from public.segments where slug='architecture'))))$$,
   'org admin creates segment-scoped code under RLS');
 select is((select count(*) from public.access_code_grants g join public.access_codes c on c.id=g.access_code_id
-  where c.label='Architecture only' and g.segment_id=(select id from public.segments where slug='architecture-structure')),
+  where c.label='Architecture only' and g.segment_id=(select id from public.segments where slug='architecture')),
   1::bigint,'segment grant is stored atomically');
 reset role;
 select is((select count(*) from public.access_codes where label='Architecture only' and code_hash ~ '^[0-9a-f]{64}$'),

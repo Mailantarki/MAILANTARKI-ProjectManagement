@@ -17,7 +17,7 @@ insert into public.profiles(id, organization_id, role, full_name) values
   ('42000000-0000-0000-0000-000000000012', '12000000-0000-0000-0000-000000000002', 'org_admin', 'Finalize Admin B');
 insert into public.documents(id, project_id, segment_id, title, doc_number, doc_type, file_size) values
   ('52000000-0000-0000-0000-000000000001', '32000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug='architecture-structure'), 'Pending A', 'PENDING-A', 'plan', 5);
+   (select id from public.segments where slug='architecture'), 'Pending A', 'PENDING-A', 'plan', 5);
 
 select ok(not has_column_privilege('authenticated', 'public.documents', 'upload_status', 'UPDATE'),
   'authenticated client cannot update upload_status column');
@@ -68,9 +68,9 @@ select is((select title from public.documents where id='52000000-0000-0000-0000-
 
 insert into public.documents(id, project_id, segment_id, title, doc_number, doc_type, file_size) values
   ('52000000-0000-0000-0000-000000000002', '32000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug='architecture-structure'), 'Retry A', 'RETRY-NUMBER', 'plan', 5),
+   (select id from public.segments where slug='architecture'), 'Retry A', 'RETRY-NUMBER', 'plan', 5),
   ('52000000-0000-0000-0000-000000000003', '32000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug='architecture-structure'), 'Retry B', 'RETRY-NUMBER', 'plan', 5);
+   (select id from public.segments where slug='architecture'), 'Retry B', 'RETRY-NUMBER', 'plan', 5);
 select is((select count(*) from public.documents where doc_number='RETRY-NUMBER'), 2::bigint,
   'multiple pending attempts can share a document number');
 insert into storage.objects(bucket_id, name, metadata)

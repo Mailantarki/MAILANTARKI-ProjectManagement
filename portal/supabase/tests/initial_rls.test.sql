@@ -7,7 +7,7 @@ insert into public.organizations (id, name) values
   ('10000000-0000-0000-0000-000000000001', 'Test Organization A'),
   ('10000000-0000-0000-0000-000000000002', 'Test Organization B');
 insert into public.segments (id, name, slug) values
-  ('20000000-0000-0000-0000-000000000001', 'Test Architecture', 'architecture-structure'),
+  ('20000000-0000-0000-0000-000000000001', 'Test Architecture', 'architecture'),
   ('20000000-0000-0000-0000-000000000002', 'Test MEP', 'mep')
 on conflict (slug) do nothing;
 
@@ -24,14 +24,14 @@ insert into public.profiles (id, organization_id, role, full_name) values
   ('40000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'org_admin', 'Admin A');
 insert into public.user_project_access (user_id, project_id, segment_id) values
   ('40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug = 'architecture-structure'));
+   (select id from public.segments where slug = 'architecture'));
 insert into public.documents (id, project_id, segment_id, title, doc_number, doc_type, file_path, file_size, upload_status) values
   ('50000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug = 'architecture-structure'), 'A Architecture', 'A-1', 'plan', 'projects/a/architecture/a1.pdf', 10, 'ready'),
+   (select id from public.segments where slug = 'architecture'), 'A Architecture', 'A-1', 'plan', 'projects/a/architecture/a1.pdf', 10, 'ready'),
   ('50000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001',
    (select id from public.segments where slug = 'mep'), 'A MEP', 'M-1', 'plan', 'projects/a/mep/m1.pdf', 10, 'ready'),
   ('50000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000002',
-   (select id from public.segments where slug = 'architecture-structure'), 'B Architecture', 'B-1', 'plan', 'projects/b/architecture/b1.pdf', 10, 'ready');
+   (select id from public.segments where slug = 'architecture'), 'B Architecture', 'B-1', 'plan', 'projects/b/architecture/b1.pdf', 10, 'ready');
 insert into public.access_codes (id, organization_id, code_hash, label) values
   ('60000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', repeat('a', 64), 'Test code');
 insert into public.access_logs (organization_id, user_id, action) values
@@ -53,7 +53,7 @@ select is((select count(*) from public.access_logs), 0::bigint, 'member cannot r
 select throws_ok(
   $$insert into public.documents (project_id, segment_id, title, doc_number, doc_type, file_path, file_size)
     values ('30000000-0000-0000-0000-000000000001',
-      (select id from public.segments where slug = 'architecture-structure'),
+      (select id from public.segments where slug = 'architecture'),
       'Unauthorized', 'X-1', 'plan', 'projects/x.pdf', 10)$$,
   '42501', null, 'member cannot insert documents');
 

@@ -76,9 +76,9 @@ test.describe.serial("admin organizations, projects and users", () => {
     fixture.memberId = profiles![0].id;
     const memberRow = page.locator(".admin-record", { hasText: fixture.memberEmail });
     await memberRow.getByLabel("Project").selectOption({ label: fixture.projectName });
-    await memberRow.getByLabel("Discipline").selectOption({ label: "Architecture & Structure" });
+    await memberRow.getByLabel("Discipline").selectOption({ label: "Architecture" });
     await memberRow.getByRole("button", { name: "Assign access" }).click();
-    await expect(memberRow).toContainText("Architecture & Structure");
+    await expect(memberRow).toContainText("Architecture");
 
     const memberContext = await browser.newContext();
     try {

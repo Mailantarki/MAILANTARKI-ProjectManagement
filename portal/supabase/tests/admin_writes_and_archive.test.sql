@@ -30,11 +30,11 @@ insert into public.profiles (id, organization_id, role, full_name) values
   ('41000000-0000-0000-0000-000000000004', '11000000-0000-0000-0000-000000000001', 'member', 'Member A');
 insert into public.user_project_access (user_id, project_id, segment_id) values
   ('41000000-0000-0000-0000-000000000004', '31000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug = 'architecture-structure'));
+   (select id from public.segments where slug = 'architecture'));
 insert into public.documents (id, project_id, segment_id, title, doc_number, doc_type,
   file_path, file_size, upload_status) values
   ('51000000-0000-0000-0000-000000000001', '31000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug = 'architecture-structure'),
+   (select id from public.segments where slug = 'architecture'),
    'Archive Test Drawing', 'ARC-101', 'plan', 'ignored-on-insert', 10, 'ready'),
   ('51000000-0000-0000-0000-000000000002', '31000000-0000-0000-0000-000000000002',
    (select id from public.segments where slug = 'mep'),
@@ -50,7 +50,7 @@ insert into public.access_logs (organization_id, user_id, project_id, document_i
    '31000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', 'view');
 
 select is((select file_path from public.documents where id = '51000000-0000-0000-0000-000000000001'),
-  'projects/31000000-0000-0000-0000-000000000001/architecture-structure/51000000-0000-0000-0000-000000000001.pdf',
+  'projects/31000000-0000-0000-0000-000000000001/architecture/51000000-0000-0000-0000-000000000001.pdf',
   'database generates the private document path');
 select is((select document_title from public.access_logs where document_id = '51000000-0000-0000-0000-000000000001'),
   'Archive Test Drawing', 'log snapshots document title on insert');
@@ -165,7 +165,7 @@ select is((select count(*) from removed), 0::bigint,
   'authenticated admins cannot physically delete ready documents');
 insert into public.documents (id, project_id, segment_id, title, doc_number, doc_type, file_size)
   values ('51000000-0000-0000-0000-000000000005', '31000000-0000-0000-0000-000000000001',
-    (select id from public.segments where slug = 'architecture-structure'),
+    (select id from public.segments where slug = 'architecture'),
     'Unfinished upload', 'ARC-PENDING', 'plan', 10);
 with removed as (delete from public.documents
   where id = '51000000-0000-0000-0000-000000000005' returning id)

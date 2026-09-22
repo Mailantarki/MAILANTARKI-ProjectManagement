@@ -26,9 +26,9 @@ describe("projectDocuments against local Postgres", () => {
       .select("id").eq("name", "MAILANTARKI.COM").single();
     if (orgError) throw orgError;
     const { data: segments, error: segmentError } = await client.from("segments")
-      .select("id,slug").in("slug", ["architecture-structure", "mep"]);
+      .select("id,slug").in("slug", ["architecture", "mep"]);
     if (segmentError) throw segmentError;
-    const architecture = segments!.find((s) => s.slug === "architecture-structure")!.id;
+    const architecture = segments!.find((s) => s.slug === "architecture")!.id;
     const mep = segments!.find((s) => s.slug === "mep")!.id;
     const slug = `filter-fixture-${randomUUID()}`;
     const { data: project, error: projectError } = await client.from("projects")
@@ -51,7 +51,7 @@ describe("projectDocuments against local Postgres", () => {
       const { error: insertError } = await client.from("documents").insert(rows.map((row, index) => ({
         id: ids[index], project_id: project.id, segment_id: row[0], doc_type: row[1], status: row[2],
         revision: row[3], issue_date: row[4], title: row[5], doc_number: row[6],
-        file_path: `projects/${project.id}/${row[0] === mep ? "mep" : "architecture-structure"}/${ids[index]}.pdf`,
+        file_path: `projects/${project.id}/${row[0] === mep ? "mep" : "architecture"}/${ids[index]}.pdf`,
         file_size: 123, upload_status: "ready",
       })));
       if (insertError) throw insertError;
@@ -81,7 +81,7 @@ describe("projectDocuments against local Postgres", () => {
       await check(admin, { type: "plan", revision: "B", from: "2026-02-01" }, [1]);
       await check(visitor, {}, [5, 6, 7]);
       await check(visitor, { segment: "mep", type: "plan", q: "north" }, [5]);
-      await check(visitor, { segment: "architecture-structure", status: "draft" }, [5, 7]);
+      await check(visitor, { segment: "architecture", status: "draft" }, [5, 7]);
       await check(visitor, { segment: "all", q: "north" }, [5, 7]);
       await check(admin, { type: "wrong-value", status: "draft" }, [0, 2, 4]);
       expect((await projectDocuments(visitor, slug, {}))?.project.segments.map((s) => s.slug)).toEqual(["mep"]);

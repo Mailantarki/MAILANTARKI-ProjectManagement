@@ -13,8 +13,8 @@ Proyectos (seed inicial):
 5. Daige Heights Apartment, Katampe
 6. Mauritius Golf Estate, Mabushi
 
-Segmentos (aplican a cada proyecto): Architecture & Structure, Mechanical Electrical & Plumbing (MEP),
-Landscaping, Interior Design.
+Segmentos (aplican a cada proyecto): Architecture, Structure, Mechanical Electrical & Plumbing (MEP),
+Landscaping, Interior Design, Sales Plans.
 
 Roles: `super_admin` (todo), `org_admin` (solo su organización), `member` (solo lo asignado),
 y visitante con código (solo lectura, solo lo que el código habilita).

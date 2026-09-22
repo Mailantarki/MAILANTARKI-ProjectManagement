@@ -17,7 +17,7 @@ test.describe.serial("admin code to isolated visitor session", () => {
     fixture.projectId = project.id;
     fixture.userId = await createAuthProfile({ email: fixture.email, password: fixture.password,
       fullName: "Code circle admin", role: "org_admin", organizationId: project.organization_id });
-    for (const segment of ["architecture-structure", "mep"]) {
+    for (const segment of ["architecture", "mep"]) {
       const output = execFileSync("npx", ["tsx", "scripts/seed-test-document.ts", "--project",
         "mailantarki-sports-complex", "--segment", segment], { encoding: "utf8", env: process.env });
       const match = output.match(/Seeded sample document ([a-f0-9-]{36})/);
@@ -49,7 +49,7 @@ test.describe.serial("admin code to isolated visitor session", () => {
     await expect(page.getByRole("heading", { name: "Access codes" })).toBeVisible();
     await page.getByLabel("Label").fill(`Circle ${fixture.email}`);
     await page.getByLabel("Project").selectOption({ label: "MAILANTARKI Sports Complex" });
-    await page.getByLabel("Discipline").selectOption({ label: "Architecture & Structure" });
+    await page.getByLabel("Discipline").selectOption({ label: "Architecture" });
     await page.getByRole("button", { name: "Create code" }).click();
     const dialog = page.getByRole("dialog", { name: "Access code created" });
     await expect(dialog).toBeVisible();
@@ -72,7 +72,7 @@ test.describe.serial("admin code to isolated visitor session", () => {
       await expect(visitor).toHaveURL(/\/projects$/);
       await visitor.goto("/projects/mailantarki-sports-complex");
       const tabs = visitor.getByRole("navigation", { name: "Disciplines" });
-      await expect(tabs.getByRole("link", { name: /Architecture & Structure/ })).toHaveCount(1);
+      await expect(tabs.getByRole("link", { name: /^Architecture/ })).toHaveCount(1);
       await expect(tabs.getByRole("link", { name: /Mechanical Electrical/ })).toHaveCount(0);
       const unauthorized = await visitor.request.get(`/api/documents/${fixture.documents[1]}/url`);
       expect(unauthorized.status()).toBe(404);

@@ -30,7 +30,7 @@ async function main() {
   if (host !== "localhost" && host !== "127.0.0.1")
     throw new Error("This seed is restricted to local Supabase");
   const projectSlug = z.string().min(1).parse(option("project") ?? "mailantarki-sports-complex");
-  const segmentSlug = z.string().min(1).parse(option("segment") ?? "architecture-structure");
+  const segmentSlug = z.string().min(1).parse(option("segment") ?? "architecture");
   const inputFile = args.find((arg) => !arg.startsWith("--") &&
     args[args.indexOf(arg) - 1] !== "--project" && args[args.indexOf(arg) - 1] !== "--segment");
   const [{ data: project, error: projectError }, { data: segment, error: segmentError }] = await Promise.all([

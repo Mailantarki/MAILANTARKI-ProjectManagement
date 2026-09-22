@@ -1,1 +1,1 @@
-throw new Error("The service-role Mauritius importer is retired. Use npx tsx scripts/bulk-import.ts --directory '../pdf/MAURITIUS ARCHIVE' --project mauritius-golf-estate --segment architecture-structure and sign in as an admin.");
+throw new Error("The service-role Mauritius importer is retired. Use npx tsx scripts/bulk-import.ts --directory '../pdf/MAURITIUS ARCHIVE' --project mauritius-golf-estate --segment architecture and sign in as an admin.");

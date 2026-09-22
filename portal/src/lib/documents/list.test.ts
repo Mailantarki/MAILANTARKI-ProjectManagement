@@ -9,8 +9,8 @@ describe("URL filters", () => {
     for (const [key, value] of Object.entries(input)) expect(Object.keys(parseFilters({ [key]: value }))).toEqual([key]);
   });
   it("ignores invalid fields without losing the other filters", () => {
-    expect(parseFilters({ segment: "architecture-structure", type: "injected", from: "not-a-date", page: "0", status: "draft" }))
-      .toEqual({ segment: "architecture-structure", status: "draft" });
+    expect(parseFilters({ segment: "architecture", type: "injected", from: "not-a-date", page: "0", status: "draft" }))
+      .toEqual({ segment: "architecture", status: "draft" });
   });
   it("is stable when shared as URL search parameters", () => {
     const params = new URLSearchParams({ segment: "mep", type: "report", q: "north lobby", page: "3" });

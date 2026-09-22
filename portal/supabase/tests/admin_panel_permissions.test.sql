@@ -17,7 +17,7 @@ insert into public.profiles(id,organization_id,role,full_name) values
   ('43000000-0000-0000-0000-000000000002','13000000-0000-0000-0000-000000000002','member','Other Member');
 insert into public.documents(id,project_id,segment_id,title,doc_number,doc_type,file_size,upload_status) values
   ('53000000-0000-0000-0000-000000000001','33000000-0000-0000-0000-000000000001',
-   (select id from public.segments where slug='architecture-structure'),'Panel Drawing','PANEL-1','plan',10,'ready');
+   (select id from public.segments where slug='architecture'),'Panel Drawing','PANEL-1','plan',10,'ready');
 insert into public.access_logs(organization_id,user_id,project_id,document_id,action) values
   ('13000000-0000-0000-0000-000000000001','43000000-0000-0000-0000-000000000001',
    '33000000-0000-0000-0000-000000000001','53000000-0000-0000-0000-000000000001','view');

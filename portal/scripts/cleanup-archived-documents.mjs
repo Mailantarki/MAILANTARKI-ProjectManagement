@@ -45,7 +45,7 @@ for (const candidate of candidates) {
   const parts = candidate.file_path.split("/");
   const validPath = parts.length === 4 && parts[0] === "projects"
     && parts[1] === candidate.project_id
-    && ["architecture-structure", "mep", "landscaping", "interior-design"].includes(parts[2])
+    && ["architecture-structure", "architecture", "structure", "sales-plans", "mep", "landscaping", "interior-design"].includes(parts[2])
     && parts[3] === `${candidate.id}.pdf`;
   if (!validPath) {
     failed += 1;

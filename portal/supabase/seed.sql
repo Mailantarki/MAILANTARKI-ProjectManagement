@@ -1,5 +1,7 @@
 insert into public.segments (name, slug) values
-  ('Architecture & Structure', 'architecture-structure'),
+  ('Architecture', 'architecture'),
+  ('Structure', 'structure'),
+  ('Sales Plans', 'sales-plans'),
   ('Mechanical Electrical & Plumbing (MEP)', 'mep'),
   ('Landscaping', 'landscaping'),
   ('Interior Design', 'interior-design')
