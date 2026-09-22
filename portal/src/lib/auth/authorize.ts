@@ -72,6 +72,10 @@ export function isAdminPrincipal(p: Principal | null): p is Extract<Principal, {
   return p?.kind === "user" && (p.role === "super_admin" || p.role === "org_admin");
 }
 
+export function authorizeSuperAdmin(p: Principal | null): boolean {
+  return isAdminPrincipal(p) && p.role === "super_admin";
+}
+
 export function authorizeAdminOrganization(p: Principal | null, organizationId: string): boolean {
   return isAdminPrincipal(p) && (p.role === "super_admin" || p.organizationId === organizationId);
 }
@@ -81,4 +85,12 @@ export function authorizeUserCreation(p: Principal | null, organizationId: strin
   if (!isAdminPrincipal(p)) return false;
   if (p.role === "super_admin") return role === "super_admin" ? organizationId === null : organizationId !== null;
   return role !== "super_admin" && organizationId !== null && p.organizationId === organizationId;
+}
+
+export function authorizeUserAssignment(p: Principal | null, userId: string,
+  userOrganizationId: string | null, userRole: "super_admin" | "org_admin" | "member",
+  projectOrganizationId: string): boolean {
+  return isAdminPrincipal(p) && p.userId !== userId && userRole !== "super_admin" &&
+    userOrganizationId === projectOrganizationId &&
+    (p.role === "super_admin" || p.organizationId === projectOrganizationId);
 }

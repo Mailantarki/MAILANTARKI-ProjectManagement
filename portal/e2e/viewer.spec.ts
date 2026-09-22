@@ -86,6 +86,8 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+    await page.goto("/admin/users");
+    await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/projects/${projectSlug}`);
     const tabs = page.getByRole("navigation", { name: "Disciplines" });
     await expect(tabs.getByRole("link", { name: /Architecture & Structure/ })).toHaveCount(1);
@@ -107,6 +109,8 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.getByRole("button", { name: "Enter access code" }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+    await page.goto("/admin/codes");
+    await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/projects/${projectSlug}`);
     const tabs = page.getByRole("navigation", { name: "Disciplines" });
     await expect(tabs.getByRole("link", { name: /Mechanical Electrical/ })).toHaveCount(1);

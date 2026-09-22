@@ -79,6 +79,10 @@ supabase/seed.sql
     solo los `pending` del proyecto pueden cancelarse (DELETE sujeto a RLS). Los
     documentos archivados permanecen 30 días antes de la limpieza
     de Storage con `--execute`. Los logs conservan snapshots del documento y proyecto.
+12. El panel de admin usa server actions que reconfirman `getPrincipal()` y
+    `authorize()` aun cuando el layout esté protegido. Crear/listar usuarios mediante
+    Auth admin API e insertar su perfil inicial es la excepción documentada; asignar
+    proyectos, crear códigos y archivar/restaurar usan el cliente del usuario y RLS.
 
 ## Flujo de trabajo
 

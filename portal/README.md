@@ -1,9 +1,9 @@
 # MAILANTARKI.COM Technical Documentation Portal
 
 Phases 2 and 3 provide authentication, visitor codes, authorized listings and a
-private PDF viewer. Phase 4 is in progress: guarded admin overview, bulk CLI import
-and individual PDF upload exist. Organization/project management, users and grants,
-code management, logs/CSV and archive controls remain to be built.
+private PDF viewer. Phase 4 is in progress: admin upload, organizations/projects,
+user creation and grants, access codes and access logs are implemented. Document
+archive/restore UI and final security review remain open.
 The domain `mailantarki.com` is planned, not configured.
 
 ## Local setup
@@ -194,6 +194,35 @@ The first command is a dry-run. Each invocation processes at most 100 documents.
 Configure `.env.local` first. A scheduled run should alert on nonzero exit status.
 Only document IDs are printed; object paths and credentials are not logged.
 The same command also purges interrupted `pending` uploads older than one hour.
+
+## Phase 4 admin panel
+
+`/admin` is server-gated to `super_admin` and `org_admin`. Every mutation checks
+the principal again inside the server action. Organization and project changes,
+user assignments, code creation/revocation and log reads use the authenticated
+client under RLS. Creating an Auth user and its initial profile is the narrow
+documented service-role exception; the temporary password appears once and is not
+emailed in this MVP. `org_admin` cannot create `super_admin` or manage another
+organization, including by direct server-action calls. The older CLI user and
+code scripts remain as fallback tools.
+The user list reads Auth email addresses with the server-only Auth admin API,
+then shows only profiles visible through the requesting admin's RLS scope.
+
+`/admin/organizations` and `/admin/projects` create, edit, archive and restore
+records. `/admin/users` creates accounts and assigns project/discipline access;
+`/admin/codes` creates segment-scoped codes atomically and revokes/reactivates them.
+`/admin/logs` filters access history and streams a CSV with spreadsheet-formula
+escaping. Audit logs are never deleted by the E2E suite. Restoration only changes
+`archived_at`; a physical delete is never offered in the panel.
+
+This partial Phase 4 block passed 43 TypeScript tests, 110 SQL assertions,
+7 browser E2E tests, lint, typecheck, build and a production dependency audit.
+The browser suite includes an isolated visitor context: an admin creates a code,
+the visitor sees only its discipline, a direct request for another PDF returns
+404, and revocation cuts access on the next request. New migrations were applied
+locally without resetting Storage; Mauritius still has 22 ready rows, 22 private
+objects and no orphan objects. The final Phase 4 reset/reimport and security
+review remain pending until document archive/restore UI is complete.
 
 ## Verification and remaining work
 
