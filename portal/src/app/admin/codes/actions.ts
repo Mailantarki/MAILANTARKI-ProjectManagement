@@ -63,9 +63,23 @@ export async function setCodeActive(form: FormData) {
   const principal = await getPrincipal();
   const user = await getUserClient();
   const { data: code } = await user.from("access_codes").select("id,organization_id")
-    .eq("id", id).maybeSingle();
+    .eq("id", id).is("deleted_at", null).maybeSingle();
   if (!code || !authorizeAdminOrganization(principal, code.organization_id)) throw new Error("Code not found");
-  const { error } = await user.from("access_codes").update({ is_active: active }).eq("id", id);
+  const { error } = await user.from("access_codes").update({ is_active: active }).eq("id", id).is("deleted_at", null);
   if (error) throw new Error("Could not update access code");
+  revalidatePath("/admin/codes");
+}
+
+export async function deleteAccessCode(form: FormData) {
+  const id = uuid.parse(form.get("id"));
+  const principal = await getPrincipal();
+  const user = await getUserClient();
+  const { data: code } = await user.from("access_codes").select("id,organization_id")
+    .eq("id", id).is("deleted_at", null).maybeSingle();
+  if (!code || !authorizeAdminOrganization(principal, code.organization_id)) throw new Error("Code not found");
+  const { data, error } = await user.from("access_codes")
+    .update({ is_active: false, deleted_at: new Date().toISOString() })
+    .eq("id", id).is("deleted_at", null).select("id").maybeSingle();
+  if (error || !data) throw new Error("Could not delete access code");
   revalidatePath("/admin/codes");
 }

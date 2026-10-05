@@ -19,8 +19,8 @@ export async function POST(request: Request) {
   const { data, error } = await client.auth.signInWithPassword(parsed.data);
   if (error || !data.user) return denied();
   const { data: profile } = await client.from("profiles")
-    .select("organization_id").eq("id", data.user.id).maybeSingle();
-  if (!profile) { await client.auth.signOut(); return denied(); }
+    .select("organization_id,suspended_at,must_change_password").eq("id", data.user.id).maybeSingle();
+  if (!profile || profile.suspended_at) { await client.auth.signOut(); return denied(); }
   try {
   await logAccess(request, { action: "login", user_id: data.user.id, organization_id: profile.organization_id });
   await releaseAttempt(attemptId);
@@ -28,5 +28,5 @@ export async function POST(request: Request) {
     await client.auth.signOut();
     return Response.json({ error: "Sign in unavailable" }, { status: 503 });
   }
-  return Response.json({ redirectTo: "/projects" }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ redirectTo: profile.must_change_password ? "/change-password" : "/projects" }, { headers: { "Cache-Control": "no-store" } });
 }

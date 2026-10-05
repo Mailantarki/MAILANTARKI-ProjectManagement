@@ -1,0 +1,129 @@
+:root {
+  --portal-ink: var(--text-primary);
+  --portal-muted: var(--text-secondary);
+  --portal-line: var(--border);
+  --portal-surface: var(--surface);
+  --portal-canvas: var(--sage);
+  --portal-action: var(--accent);
+  --portal-accent: var(--accent);
+}
+.user-dialog { box-sizing: border-box; width: min(540px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 24px; color: var(--text-primary); background: var(--surface); margin: auto; }
+.user-dialog::backdrop { background: #17201d80; }
+.user-dialog header { display: flex; gap: 16px; justify-content: space-between; align-items: start; margin-bottom: 20px; }
+.user-dialog h2 { font-size: 22px; line-height: 1.3; margin: 0; overflow-wrap: anywhere; }
+.user-dialog h3 { font-size: 16px; margin: 18px 0 12px; }
+.user-drawer { width: min(520px, 100%); height: 100dvh; max-height: 100dvh; margin: 0 0 0 auto; border-radius: 0; }
+.user-stacked-form, .user-drawer .admin-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 20px; }
+.user-stacked-form .field input, .user-stacked-form .field select, .user-drawer .field select { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--border); background: white; }
+.user-meta { display: block; font-size: 13px; color: var(--text-secondary); margin-top: 4px; overflow-wrap: anywhere; }
+.user-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.user-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; background: transparent; color: var(--accent); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.user-panel-section, .user-grant { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 20px; }
+.user-grant > span { display: block; font-size: 14px; margin-top: 6px; }
+.users-table { table-layout: fixed; width: 100%; min-width: 0; }
+.users-table th:first-child { width: 27%; }
+.users-table td { overflow-wrap: anywhere; vertical-align: top; }
+.users-table .status-badge { white-space: normal; }
+.user-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.user-filters label { flex: 1 1 150px; min-width: 0; }
+.user-filters label:first-child { flex-basis: 220px; }
+.user-dialog .secret-code { overflow-wrap: anywhere; display: block; padding: 16px 0; }
+.password-page { max-width: 480px; }
+.password-page > form { margin-bottom: 16px; }
+@media (max-width: 720px) {
+  .users-table thead { display: none; }
+  .users-table tr { display: block; padding: 14px; border-bottom: 1px solid var(--border); }
+  .users-table td { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; padding: 7px 0; border: 0; }
+  .users-table td::before { content: attr(data-label); font-size: 12px; color: var(--text-secondary); }
+  .users-table td > .user-meta { grid-column: 2; margin: 0; }
+  .users-page .admin-page-title { gap: 12px; align-items: center; }
+}
+body, .project-shell, .admin-shell { background: var(--sage); color: var(--text-primary); font-family: var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.unified-nav, .project-shell .unified-nav { background: var(--surface); gap: 12px; min-height: 58px; padding: 14px 28px; box-sizing: border-box; }
+.unified-nav .brand { letter-spacing: 0; white-space: nowrap; }
+.unified-nav .admin-nav { flex: 1; justify-content: center; gap: 22px; font-size: 14px; }
+.unified-nav .admin-nav a { color: var(--text-secondary); padding: 10px 0; border-bottom: 2px solid transparent; }
+.unified-nav .admin-nav a[aria-current] { color: var(--text-primary); border-color: var(--accent); font-weight: 700; }
+.unified-nav .topbar-links { margin-left: auto; flex-shrink: 0; }
+.ui-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
+.project-card { padding: 0; }
+.project-card .project-item { border: 0; border-radius: 10px; height: 100%; box-sizing: border-box; box-shadow: none; transform: none; }
+.project-card .project-item.has-cover { padding-top: 24px; }
+.project-card .project-item.has-cover .project-cover { margin: 0 auto 18px; outline-color: var(--border); }
+.project-card:has(a:hover) { border-color: var(--accent); }
+.new-project { margin: 0 0 24px; }
+.new-project h2 { margin: 0 0 16px; font-size: 16px; font-weight: 700; }
+.project-admin-card.admin-record { margin: 0; padding: 20px 22px; border: 1px solid var(--border); gap: 12px; align-content: start; }
+.admin-project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.card-title { font-size: 16px; font-weight: 700; line-height: 1.5; margin: 0 0 4px; }
+.card-meta { font-size: 14px; color: var(--text-secondary); margin: 0 0 12px; }
+.card-actions { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; font-size: 13px; font-weight: 600; }
+.card-actions a { color: var(--accent); text-decoration: none; }
+.card-actions .admin-form .button { background: transparent; border: 0; color: var(--accent); padding: 0; min-height: 24px; font-size: 13px; font-weight: 600; }
+.project-editor summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+.project-editor[open] summary { margin-bottom: 18px; }
+.project-editor .admin-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.project-editor .cover-field { grid-column: auto; min-width: 0; }
+.project-editor .cover-drop { grid-template-columns: 48px minmax(0, 1fr); }
+.project-editor .cover-browse { grid-column: 1 / -1; }
+.project-editor .cover-preview { width: 48px; }
+.admin-shell .portal, .projects-index { width: min(calc(100% - 56px), 1344px); margin: 28px auto; }
+.portal h1, .projects-index h1 { font-size: 32px; font-weight: 800; letter-spacing: 0; margin: 0 0 22px; }
+.portal .eyebrow, .page-label { color: var(--text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0; margin: 0 0 4px; }
+.admin-shell .admin-section { border-top: 0; padding: 0; margin-bottom: 28px; }
+.admin-section h2 { font-size: 16px; font-weight: 700; margin: 0 0 12px; }
+.project-admin-card .admin-record-heading { padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.project-admin-card .admin-record-heading strong { flex: 1; font-size: 18px; }
+.new-project .admin-form, .project-admin-card > .admin-form:first-of-type { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: end; }
+.new-project .field, .project-admin-card .field { min-width: 0; }
+.new-project .cover-field, .project-admin-card .cover-field { grid-column: span 2; min-width: 0; }
+.new-project .button, .project-admin-card .button { justify-self: start; }
+.new-project > .admin-form { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 14px; }
+.new-project > .admin-form > .button { grid-column: 5; grid-row: 1; }
+.new-project-options { grid-column: 1 / -1; }
+.new-project-options summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.new-project-options[open] > .field, .new-project-options[open] > .cover-field { margin-top: 16px; max-width: 640px; }
+.button, .filters button { background: var(--accent); color: var(--accent-text); border-color: var(--accent); border-radius: 8px; font-size: 14px; padding: 9px 16px; min-height: 38px; }
+.button:hover, .filters button:hover { background: var(--accent-hover); }
+.button.secondary { background: var(--surface); color: var(--accent); }
+.field input, .field select, .field textarea, .filters input, .filters select { border-color: var(--border); color: var(--text-primary); }
+.back-link, .project-hero .back-link { color: var(--text-primary); font-weight: 700; }
+.project-hero { background-color: var(--sage-2); }
+.segment-tabs a.empty-segment { color: var(--text-muted); border-bottom-color: transparent; }
+.segment-tabs a.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+.segment-tabs span { background: var(--sage-2); }
+.status-badge { display: inline-flex; padding: 3px 10px; border-radius: 100px; font-size: 12px; line-height: 1.5; font-weight: 700; white-space: nowrap; text-transform: none; }
+.table-scroll { border-radius: 10px; box-shadow: none; }
+.document-table th { font-size: 11px; color: var(--text-muted); background: var(--surface); padding: 10px 12px; }
+.document-table td { font-size: 14px; padding: 12px; }
+.field input, .field select, .field textarea, .admin-form .field input, .admin-form .field select, .admin-form .field textarea, .filters input, .filters select { border-radius: 8px; font-size: 14px; font-family: inherit; }
+.project-hero { min-height: 200px; padding: 24px 28px; }
+.project-heading h1 { font-size: 34px; font-weight: 800; letter-spacing: 0; }
+.segment-tabs a { font-size: 15px; letter-spacing: 0; }
+.segment-tabs .empty-segment span { background: transparent; color: var(--text-muted); }
+.project-admin-toolbar a { border-radius: 8px; font-size: 13px; }
+.project-admin-toolbar a:last-child { background: var(--accent); color: var(--accent-text); }
+@media (max-width: 900px) { .admin-project-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .new-project > .admin-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .new-project > .admin-form > .button { grid-column: auto; grid-row: auto; }
+}
+.status-draft { background: var(--status-draft-bg); color: var(--status-draft-fg); }
+.status-for_review { background: var(--status-review-bg); color: var(--status-review-fg); }
+.status-issued_for_construction { background: var(--status-issued-bg); color: var(--status-issued-fg); }
+.status-as_built { background: var(--status-asbuilt-bg); color: var(--status-asbuilt-fg); }
+.status-active { background: var(--code-active-bg); color: var(--code-active-fg); }
+.status-revoked { background: var(--code-revoked-bg); color: var(--code-revoked-fg); }
+.status-expired { background: var(--code-expired-bg); color: var(--code-expired-fg); }
+@media (max-width: 1050px) {
+  .unified-nav { flex-wrap: wrap; }
+  .unified-nav .admin-nav { order: 3; flex-basis: 100%; justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .unified-nav { flex-direction: row; align-items: center; padding: 16px 20px; }
+  .unified-nav .admin-nav { overflow-x: auto; flex-wrap: nowrap; }
+  .ui-card, .project-admin-card.admin-record { padding: 18px; }
+  .project-card { padding: 0; }
+  .new-project .admin-form, .project-admin-card > .admin-form:first-of-type { grid-template-columns: 1fr; }
+  .new-project .cover-field, .project-admin-card .cover-field { grid-column: auto; }
+}

@@ -1,4 +1,5 @@
 begin;
+select set_config('test.initial_grant_count',(select count(*)::text from public.access_code_grants),true);
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select no_plan();
@@ -74,7 +75,7 @@ select is((select count(*) from public.documents),
   'super admin reads all documents including the fixture');
 select is((select count(*) from public.access_codes),
   current_setting('test.initial_code_count')::bigint + 2, 'super admin reads all codes');
-select is((select count(*) from public.access_code_grants), 2::bigint, 'super admin reads all grants');
+select is((select count(*) from public.access_code_grants), current_setting('test.initial_grant_count')::bigint + 2, 'super admin reads all grants');
 select is((select count(*) from public.access_logs),
   current_setting('test.initial_log_count')::bigint + 1,
   'super admin reads all logs including the fixture');

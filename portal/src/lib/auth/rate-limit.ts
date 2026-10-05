@@ -3,7 +3,11 @@ import { getAdminClient } from "../supabase/admin";
 import { isIP } from "node:net";
 
 export function requestIp(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  // Vercel guarantees this header cannot be supplied or overwritten by the client.
+  // x-forwarded-for is only a local fallback; re-evaluate trust boundaries before
+  // deploying behind a non-Vercel proxy and only accept headers that proxy scrubs.
+  const forwarded = (request.headers.get("x-vercel-forwarded-for")
+    ?? request.headers.get("x-forwarded-for"))?.split(",")[0]?.trim();
   const candidate = forwarded || request.headers.get("x-real-ip") || "127.0.0.1";
   return isIP(candidate) ? candidate : "127.0.0.1";
 }

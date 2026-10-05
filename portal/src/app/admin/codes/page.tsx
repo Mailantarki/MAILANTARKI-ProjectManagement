@@ -1,12 +1,13 @@
 import { getPrincipal } from "@/lib/auth/principal";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { authorizeAdminOrganization, isAdminPrincipal } from "@/lib/auth/authorize";
 import { getUserClient } from "@/lib/supabase/server";
 import { AdminForm } from "../admin-form";
 import { CreateCodeForm } from "./create-code-form";
-import { setCodeActive } from "./actions";
+import { setCodeActive, deleteAccessCode } from "./actions";
 import { CodeStatus } from "./code-status";
 
 export default async function AdminCodesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
@@ -17,7 +18,7 @@ export default async function AdminCodesPage({ searchParams }: { searchParams: P
   const [{ data: codes, error, count }, { data: organizations }, { data: projects },
     { data: segments }, { data: grants }] = await Promise.all([
     user.from("access_codes").select("id,organization_id,label,uses_count,max_uses,expires_at,is_active,allow_download,created_at", { count: "exact" })
-      .order("created_at", { ascending: false }).range((page - 1) * 25, page * 25 - 1),
+      .is("deleted_at", null).order("created_at", { ascending: false }).range((page - 1) * 25, page * 25 - 1),
     user.from("organizations").select("id,name,archived_at"),
     user.from("projects").select("id,organization_id,name,archived_at"),
     user.from("segments").select("id,name").order("sort_order"),
@@ -26,7 +27,7 @@ export default async function AdminCodesPage({ searchParams }: { searchParams: P
   if (error) throw new Error("Could not load access codes");
   const availableOrganizations = (organizations ?? []).filter((org) => !org.archived_at && authorizeAdminOrganization(principal, org.id));
   const availableProjects = (projects ?? []).filter((project) => !project.archived_at);
-  return <main className="main portal"><h1>Access codes</h1>
+  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><p className="eyebrow">Administration</p><h1>Access codes</h1>
     <section className="admin-section"><h2>Create code</h2>
       <CreateCodeForm organizations={availableOrganizations} projects={availableProjects} segments={segments ?? []} />
     </section>
@@ -40,11 +41,14 @@ export default async function AdminCodesPage({ searchParams }: { searchParams: P
         <td>{code.uses_count}{code.max_uses == null ? "" : ` / ${code.max_uses}`}</td>
         <td>{code.expires_at ? new Date(code.expires_at).toLocaleString("en-GB") : "Never"}</td>
         <td><CodeStatus active={code.is_active} expiresAt={code.expires_at} /></td>
-        <td><AdminForm action={setCodeActive} label={code.is_active ? "Revoke" : "Reactivate"}
+        <td><div className="document-admin-actions"><AdminForm action={setCodeActive} label={code.is_active ? "Revoke" : "Reactivate"}
           confirmMessage={code.is_active ? "Revoke this code immediately?" : undefined}>
           <input type="hidden" name="id" value={code.id} />
           <input type="hidden" name="active" value={code.is_active ? "false" : "true"} />
-        </AdminForm></td>
+        </AdminForm><AdminForm action={deleteAccessCode} label="Delete code" deleteIcon
+          confirmMessage="Delete this access code permanently? Visitors will lose access. Access history will be preserved.">
+          <input type="hidden" name="id" value={code.id} />
+        </AdminForm></div></td>
       </tr>)}</tbody></table></div>
       {!codes?.length && <p className="empty-results">No access codes yet.</p>}
       <div className="pagination">{page > 1 && <Link href={`/admin/codes?page=${page - 1}`}>Previous</Link>}

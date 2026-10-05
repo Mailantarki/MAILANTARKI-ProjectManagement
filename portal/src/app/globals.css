@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
 :root { color-scheme: light; }
 body { margin: 0; background: #f4f5f4; color: #17201d; font-family: "Avenir Next", Avenir, "Helvetica Neue", Helvetica, sans-serif; }
 button, input { font: inherit; }
@@ -74,6 +75,18 @@ p { color: #5e6c65; }
 .admin-form .check-field { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; font-size: 13px; }
 .admin-form .button { min-height: 42px; }
 .admin-form .error { width: 100%; }
+.cover-field { display: grid; gap: 7px; min-width: min(100%, 320px); flex: 1.4; align-self: stretch; }
+.cover-label { font-size: 13px; font-weight: 700; }
+.cover-drop { min-height: 108px; box-sizing: border-box; border: 1px dashed #8ca698; background: #fff; padding: 10px; display: grid; grid-template-columns: 68px minmax(100px, 1fr) auto; align-items: center; gap: 12px; color: #456157; }
+.cover-drop.dragging { border-color: #174f40; background: #edf6f2; }
+.cover-drop > svg { justify-self: center; }
+.cover-drop div:not(.cover-preview) { display: grid; gap: 3px; min-width: 0; }
+.cover-drop strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.cover-drop span { color: #687870; font-size: 11px; }
+.cover-preview { width: 68px; aspect-ratio: 1; background-size: cover; background-position: center; border: 1px solid #d0d9d4; }
+.cover-browse { gap: 7px; padding: 0 12px; min-height: 38px !important; }
+.cover-remove { justify-self: start; display: inline-flex; align-items: center; gap: 5px; border: 0; padding: 0; background: transparent; color: #9b3b2f; font-size: 12px; }
+.cover-help { color: #3d6556; font-size: 12px; }
 .admin-record > .admin-form:last-child { justify-self: start; }
 .admin-record > .admin-form:last-child .button { background: white; color: #9b3b2f; border-color: #c8a6a0; }
 .admin-record .muted { color: #64736b; font-size: 13px; }
@@ -119,7 +132,7 @@ p { color: #5e6c65; }
 .document-edit-form .field textarea { min-height: 92px; resize: vertical; }
 .document-edit-form .full { grid-column: 1 / -1; }
 .document-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
-@media (max-width: 720px) { .topbar { align-items: start; flex-direction: column; gap: 16px; } .admin-nav { justify-content: flex-start; } .admin-form .field { min-width: 100%; } }
+@media (max-width: 720px) { .topbar { align-items: start; flex-direction: column; gap: 16px; } .admin-nav { justify-content: flex-start; } .admin-form .field { min-width: 100%; } .cover-field { min-width: 100%; } .cover-drop { grid-template-columns: 58px 1fr; } .cover-drop .cover-browse { grid-column: 1 / -1; } .cover-preview { width: 58px; } }
 @media (max-width: 640px) { .document-edit-form { grid-template-columns: 1fr; } .document-edit-form .full { grid-column: auto; } }
 
 /* Project portal */

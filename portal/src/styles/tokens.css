@@ -1,0 +1,26 @@
+:root {
+  --sage: #e7ede8;
+  --sage-2: #dbe4dc;
+  --surface: #ffffff;
+  --text-primary: #16241c;
+  --text-secondary: #52645a;
+  --text-muted: #8a9a8f;
+  --border: #d7ddd8;
+  --accent: #1f3d2e;
+  --accent-hover: #163023;
+  --accent-text: #ffffff;
+  --status-draft-bg: #faedd2;
+  --status-draft-fg: #8a5a12;
+  --status-review-bg: #dbe8fb;
+  --status-review-fg: #1a4a8f;
+  --status-issued-bg: #dcf0e0;
+  --status-issued-fg: #1a6b34;
+  --status-asbuilt-bg: #e4e9ea;
+  --status-asbuilt-fg: #40575c;
+  --code-active-bg: #dcf0e0;
+  --code-active-fg: #1a6b34;
+  --code-revoked-bg: #f8dede;
+  --code-revoked-fg: #9c2c2c;
+  --code-expired-bg: #e4e9ea;
+  --code-expired-fg: #57666a;
+}

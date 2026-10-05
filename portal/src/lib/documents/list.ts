@@ -60,8 +60,13 @@ export async function visibleProjects(principal: Principal) {
       if (countError) throw countError;
       counts.push({ ...segment, count: count ?? 0 });
     }
+    let coverImageUrl = project.cover_image_url;
+    if (coverImageUrl && !/^https?:\/\//.test(coverImageUrl)) {
+      const { data } = await admin.storage.from("project-covers").createSignedUrl(coverImageUrl, 3600);
+      coverImageUrl = data?.signedUrl ?? null;
+    }
     result.push({ id: project.id, slug: project.slug, name: project.name, location: project.location,
-      coverImageUrl: project.cover_image_url,
+      coverImageUrl,
       segments: counts, count: counts.reduce((sum, item) => sum + item.count, 0) });
   }
   return result;
@@ -85,7 +90,7 @@ export async function projectDocuments(principal: Principal, slug: string, filte
   const page = filters.page ?? 1;
   const { data, count, error } = await query.order("is_featured", { ascending: false })
     .order("issue_date", { ascending: false, nullsFirst: false })
-    .order("id", { ascending: true }).range((page - 1) * 25, page * 25 - 1);
+    .order("id", { ascending: true }).range((page - 1) * 10, page * 10 - 1);
   if (error) throw error;
   return { project, segment, documents: data ?? [], count: count ?? 0, page };
 }

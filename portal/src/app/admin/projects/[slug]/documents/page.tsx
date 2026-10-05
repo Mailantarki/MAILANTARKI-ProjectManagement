@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { projectReturn, withReturnTo } from "@/lib/navigation/project-return";
 import { notFound } from "next/navigation";
 import { authorize } from "@/lib/auth/authorize";
 import { getPrincipal } from "@/lib/auth/principal";
@@ -6,9 +7,12 @@ import { getUserClient } from "@/lib/supabase/server";
 import { AdminForm } from "../../../admin-form";
 import { setDocumentArchived } from "./actions";
 import { DocumentControls } from "./document-controls";
+import { ArrowLeft } from "lucide-react";
 
-export default async function AdminDocumentsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function AdminDocumentsPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ returnTo?: string | string[] }> }) {
   const { slug } = await params;
+  const back = projectReturn((await searchParams).returnTo, slug, "/admin/projects");
+  const current = withReturnTo(`/admin/projects/${slug}/documents`, back);
   const principal = await getPrincipal();
   if (!principal) notFound();
   const user = await getUserClient();
@@ -48,8 +52,9 @@ export default async function AdminDocumentsPage({ params }: { params: Promise<{
     </tr>)}</tbody></table></div>;
   }
 
-  return <main className="main portal"><div className="eyebrow">{project.name}</div><h1>Documents</h1>
-    <p><Link href="/admin/projects">Projects</Link>{!project.archived_at && <>{" · "}<Link href={`/admin/projects/${project.slug}/documents/new`}>Upload PDFs</Link></>}</p>
+  return <main className="main portal"><Link className="back-link" href={back}><ArrowLeft size={15} aria-hidden />{back.startsWith("/projects/") ? "Back to project" : "Projects"}</Link>
+    <div className="eyebrow">{project.name}</div><h1>Documents</h1>
+    {!project.archived_at && <p><Link href={withReturnTo(`/admin/projects/${project.slug}/documents/new`, current)}>Upload PDFs</Link></p>}
     {project.archived_at && <p>This project is archived. Restore the project before restoring documents.</p>}
     <section className="admin-section"><h2>Active ({active.length})</h2>{list(active, false)}</section>
     <section className="admin-section"><h2>Archived ({archived.length})</h2>{list(archived, true)}</section>

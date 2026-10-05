@@ -6,7 +6,15 @@ import { admin, createAuthProfile } from "../scripts/cli-common";
 import { generateCode } from "../src/lib/access-codes/generate";
 
 const projectSlug = "mailantarki-sports-complex";
-const segments = ["architecture", "mep"] as const;
+const segments = ["architecture", "structure", "mep", "interior-design", "landscaping", "sales-plan"] as const;
+const tabNames = {
+  architecture: /^Architecture/,
+  structure: /^Structure/,
+  mep: /Mechanical Electrical/,
+  "interior-design": /^Interior Design/,
+  landscaping: /^Landscaping/,
+  "sales-plan": /^Sales Plan/,
+} as const;
 const fixture = {
   userId: "", codeId: "", projectId: "", mauritiusProjectId: "", documents: [] as string[],
   email: `e2e-${randomBytes(8).toString("hex")}@example.test`,
@@ -29,7 +37,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     fixture.mauritiusProjectId = mauritius.id;
     const segmentRows = await required(admin.from("segments").select("id,slug").in("slug", [...segments]));
     const architecture = segmentRows.find((s) => s.slug === segments[0])!.id;
-    const mep = segmentRows.find((s) => s.slug === segments[1])!.id;
+    const mep = segmentRows.find((s) => s.slug === "mep")!.id;
     fixture.userId = await createAuthProfile({ email: fixture.email, password: fixture.password,
       fullName: "E2E member", role: "member", organizationId: project.organization_id });
     await required(admin.from("user_project_access").insert({ user_id: fixture.userId,
@@ -86,12 +94,16 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByRole("heading", { name: "Project library" })).toBeVisible();
+    await page.screenshot({ path: "/tmp/mailantarki-unified-portal.png", fullPage: true });
     await page.goto("/admin/users");
     await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/projects/${projectSlug}`);
     const tabs = page.getByRole("navigation", { name: "Disciplines" });
-    await expect(tabs.getByRole("link", { name: /^Architecture/ })).toHaveCount(1);
-    await expect(tabs.getByRole("link", { name: /Mechanical Electrical/ })).toHaveCount(0);
+    await expect(tabs.getByRole("link")).toHaveCount(1);
+    await expect(tabs.getByRole("link", { name: tabNames.architecture })).toHaveCount(1);
+    for (const segment of segments.filter((item) => item !== "architecture")) {
+      await expect(tabs.getByRole("link", { name: tabNames[segment] })).toHaveCount(0);
+    }
     await page.getByRole("button", { name: "View" }).first().click();
     const dialog = page.getByRole("dialog", { name: "PDF viewer" });
     await expect(dialog.locator("canvas.react-pdf__Page__canvas")).toBeVisible();
@@ -113,14 +125,20 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/projects/${projectSlug}`);
     const tabs = page.getByRole("navigation", { name: "Disciplines" });
-    await expect(tabs.getByRole("link", { name: /Mechanical Electrical/ })).toHaveCount(1);
-    await expect(tabs.getByRole("link", { name: /^Architecture/ })).toHaveCount(0);
+    await expect(tabs.getByRole("link")).toHaveCount(1);
+    await expect(tabs.getByRole("link", { name: tabNames.mep })).toHaveCount(1);
+    for (const segment of segments.filter((item) => item !== "mep")) {
+      await expect(tabs.getByRole("link", { name: tabNames[segment] })).toHaveCount(0);
+    }
     const cookie = (await page.context().cookies()).find((item) => item.name === "visitor_session");
     expect(cookie).toBeDefined();
-    const response = await request.get(`/api/documents/${fixture.documents[0]}/url`, {
-      headers: { Cookie: `visitor_session=${cookie!.value}` },
-    });
-    expect(response.status()).toBe(404);
+    for (const [index] of segments.entries()) {
+      if (segments[index] === "mep") continue;
+      const response = await request.get(`/api/documents/${fixture.documents[index]}/url`, {
+        headers: { Cookie: `visitor_session=${cookie!.value}` },
+      });
+      expect(response.status()).toBe(404);
+    }
   });
 
   test("opens a real Mauritius floor-plan PDF", async ({ page }) => {
@@ -130,6 +148,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("heading", { name: "Project library" })).toBeVisible();
     await page.goto("/projects/mauritius-golf-estate");
+    await page.screenshot({ path: "/tmp/mailantarki-unified-project.png", fullPage: true });
     await page.getByRole("button", { name: "View" }).first().click();
     const dialog = page.getByRole("dialog", { name: "PDF viewer" });
     await expect(dialog.locator("canvas.react-pdf__Page__canvas")).toBeVisible();

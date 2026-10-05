@@ -82,6 +82,26 @@ test.describe.serial("admin code to isolated visitor session", () => {
       await expect(page.getByRole("row", { name: new RegExp(`Circle ${fixture.email}`) })).toContainText("Revoked");
       const afterRevoke = await visitor.request.get(`/api/documents/${fixture.documents[0]}/url`);
       expect([401, 404]).toContain(afterRevoke.status());
+      const row = page.getByRole("row", { name: new RegExp(`Circle ${fixture.email}`) });
+      await row.getByRole("button", { name: "Reactivate" }).click();
+      await expect(row).toContainText("Active");
+      await visitor.goto("/");
+      await visitor.getByLabel("Enter access code").fill(code);
+      await visitor.getByRole("button", { name: "Enter access code" }).click();
+      await expect(visitor).toHaveURL(/\/projects$/);
+      await row.getByRole("button", { name: "Delete code" }).click();
+      await expect(row).toHaveCount(0);
+      await page.reload();
+      await expect(row).toHaveCount(0);
+      const afterDelete = await visitor.request.get(`/api/documents/${fixture.documents[0]}/url`);
+      expect([401, 404]).toContain(afterDelete.status());
+      const { data: deleted } = await admin.from("access_codes").select("deleted_at,is_active")
+        .eq("id", fixture.codeId).single();
+      expect(deleted?.deleted_at).toBeTruthy();
+      expect(deleted?.is_active).toBe(false);
+      const { count: logs } = await admin.from("access_logs").select("id", { count: "exact", head: true })
+        .eq("access_code_id", fixture.codeId);
+      expect(logs).toBeGreaterThan(0);
     } finally { await incognito.close(); }
   });
 });

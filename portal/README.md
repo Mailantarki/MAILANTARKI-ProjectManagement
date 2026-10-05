@@ -4,9 +4,16 @@ Secure technical-document portal for organizing and reviewing construction PDFs 
 
 The application supports authenticated teams and read-only visitors with scoped access codes. Documents remain in private object storage and are delivered through short-lived signed URLs only after server-side authorization.
 
-> **Project status:** Phases 1-4 are complete and verified locally. Production hardening and deployment are not complete. The planned domain is `mailantarki.com`.
+> **Project status:** Phases 1-5 are complete and verified locally. Production deployment has not started. The planned domain is `mailantarki.com`.
 
 ## Features
+
+Access codes can be permanently removed from the issued-code list using the trash button.
+This is a soft deletion (`deleted_at` plus `is_active = false`) through the authenticated
+user client and organization-scoped RLS. Logs and grants remain for audit history; database
+constraints prevent reactivation or clearing the deletion marker. Visitor sessions are
+revalidated on the next request. Previously issued PDF signed URLs may remain valid for
+their remaining lifetime (up to 300 seconds).
 
 - Six seeded MAILANTARKI projects and six shared disciplines
 - Email/password authentication with role-based access
@@ -17,6 +24,7 @@ The application supports authenticated teams and read-only visitors with scoped 
 - URL-based document filters and server-side pagination
 - Admin management for organizations, projects, users and assignments
 - PDF upload with metadata validation and controlled finalization
+- Drag-and-drop project cover uploads in private Storage with signed delivery
 - Project-level featured documents, ordered first for every authorized viewer
 - Document metadata editing plus soft archive and restore from the admin panel
 - Bulk PDF import from a trusted CLI
@@ -61,8 +69,10 @@ All application permission decisions pass through `src/lib/auth/authorize.ts`. P
 - Ready documents, projects and organizations use soft deletion.
 - Audit snapshots survive later document cleanup.
 - The service-role key is confined to server-only modules and narrowly defined operations.
+- A per-request nonce protects executable scripts; production `script-src` does not use `unsafe-inline`.
+- `style-src 'unsafe-inline'` remains narrowly documented because React-PDF and calculated React layout use style attributes.
 
-See [AGENTS.md](./AGENTS.md) and the project skills under [`.agents/skills`](./.agents/skills) for the detailed security and implementation rules.
+See [AGENTS.md](./AGENTS.md), [RUNBOOK.md](./RUNBOOK.md) and the project skills under [`.agents/skills`](./.agents/skills) for the detailed security and implementation rules.
 
 ## Project Structure
 
@@ -94,7 +104,7 @@ Keep the repository outside macOS-protected directories such as `~/Documents` if
 1. Install dependencies:
 
    ```bash
-   npm install
+   npm ci
    npx playwright install chromium
    ```
 
@@ -197,15 +207,27 @@ npm audit --omit=dev
 
 `npm test` runs Vitest and the pgTAP RLS suite. Browser tests require Docker, local Supabase and Playwright Chromium. Stop a separate `next dev` process before E2E tests because both processes use `.next`.
 
-Current verified baseline:
+Current Phase 5 closing baseline:
 
-- 46 TypeScript tests
-- 118 SQL assertions
+- 50 TypeScript tests
+- 121 SQL assertions
 - 7 Playwright browser tests
-- Production dependency audit with no known vulnerabilities at the last local review
-- Full Phase 4 security review approved with one production follow-up
+- Production dependency audit with no known vulnerabilities
+- Production build with per-request CSP nonces verified against emitted script tags
 
-The production follow-up is to verify the hosting proxy's trusted `x-forwarded-for` behavior before relying on it for IP rate limiting.
+IP rate limiting prefers Vercel's protected `x-vercel-forwarded-for` header. `x-forwarded-for` is only the local-development fallback; deployments behind a different proxy must explicitly verify that proxy strips client-supplied forwarding headers.
+
+## Dependency Installation Policy
+
+Local setup, GitHub Actions and Vercel use `npm ci` with the committed lockfile. `npm install` is reserved for deliberate dependency updates that also review and commit `package-lock.json`.
+
+The npm `allowScripts` policy permits only the reviewed native setup scripts required by the toolchain:
+
+- `esbuild@0.28.2`: approved; used by TypeScript execution and test/build tooling.
+- `unrs-resolver@1.12.2`: approved; installs the platform resolver used by the lint toolchain.
+- `fsevents`: denied; it is an optional macOS file-watching acceleration and is not required to build or run the application.
+
+After dependency updates, run `npm install-scripts ls`; CI must fail review if an unreviewed package requests an install script. GitHub Actions and `vercel.json` explicitly use `npm ci`.
 
 ## Maintenance
 

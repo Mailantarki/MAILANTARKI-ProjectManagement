@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/lib/auth/principal";
 import { isAdminPrincipal } from "@/lib/auth/authorize";
 import { getUserClient } from "@/lib/supabase/server";
 import { parseLogFilters, applyLogFilters } from "@/lib/admin/log-filters";
+import { z } from "zod";
 
 export default async function AdminLogsPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -22,13 +24,23 @@ export default async function AdminLogsPage({ searchParams }: {
     user.from("projects").select("id,name").order("name"),
   ]);
   if (error) throw new Error("Could not load access logs");
+  const eventPage = z.coerce.number().int().min(1).max(100000).catch(1).parse(raw.eventPage);
+  let eventsQuery = user.from("admin_events").select("id,actor_id,target_user_id,action,details,created_at", { count: "exact" });
+  if (filters.userId) eventsQuery = eventsQuery.or(`actor_id.eq.${filters.userId},target_user_id.eq.${filters.userId}`);
+  if (filters.projectId) eventsQuery = eventsQuery.eq("details->>project_id", filters.projectId);
+  if (filters.from) eventsQuery = eventsQuery.gte("created_at", `${filters.from}T00:00:00Z`);
+  if (filters.to) eventsQuery = eventsQuery.lt("created_at", new Date(Date.parse(filters.to) + 86400000).toISOString());
+  const { data: events, count: eventCount, error: eventError } = await eventsQuery.order("created_at", { ascending: false })
+    .order("id").range((eventPage - 1) * 25, eventPage * 25 - 1);
+  if (eventError) throw new Error("Could not load administrative activity");
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(raw)) if (typeof value === "string" && value) params.set(key, value);
   params.delete("page");
   const exportUrl = `/admin/logs/export?${params.toString()}`;
   const pages = Math.max(1, Math.ceil((count ?? 0) / 25));
   const pageUrl = (page: number) => { const next = new URLSearchParams(params); next.set("page", String(page)); return `/admin/logs?${next}`; };
-  return <main className="main portal"><div className="admin-page-title"><h1>Access logs</h1>
+  const eventUrl = (page: number) => { const next = new URLSearchParams(params); next.set("eventPage", String(page)); return `/admin/logs?${next}`; };
+  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><div className="admin-page-title"><h1>Access logs</h1>
     <Link className="button secondary" href={exportUrl}>Export CSV</Link></div>
     <form className="filters" action="/admin/logs" method="get">
       <label>User<select name="userId" defaultValue={filters.userId ?? ""}><option value="">All</option>{(profiles ?? []).map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select></label>
@@ -54,5 +66,18 @@ export default async function AdminLogsPage({ searchParams }: {
     {!logs?.length && <p className="empty-results">No matching events.</p>}
     <div className="pagination">{filters.page > 1 && <Link href={pageUrl(filters.page - 1)}>Previous</Link>}
       <span>{filters.page} / {pages}</span>{filters.page < pages && <Link href={pageUrl(filters.page + 1)}>Next</Link>}</div>
+    <section className="admin-section"><h2>Administrative activity ({eventCount ?? 0})</h2>
+      <div className="table-scroll"><table className="document-table"><thead><tr><th>Time</th><th>Actor</th><th>User</th><th>Action</th><th>Project / discipline</th></tr></thead>
+        <tbody>{(events ?? []).map((event) => <tr key={event.id}>
+          <td>{new Date(event.created_at).toLocaleString("en-GB")}</td>
+          <td>{profiles?.find((profile) => profile.id === event.actor_id)?.full_name ?? "System"}</td>
+          <td>{profiles?.find((profile) => profile.id === event.target_user_id)?.full_name ?? "User removed"}</td>
+          <td>{event.action.replaceAll("_", " ")}</td>
+          <td>{projects?.find((project) => project.id === event.details?.project_id)?.name ?? ""}{event.details?.segment_id ? ` / ${event.details.segment_id}` : ""}</td>
+        </tr>)}</tbody></table></div>
+      {!events?.length && <p className="empty-results">No administrative activity.</p>}
+      <nav className="pagination" aria-label="Administrative activity pages">{eventPage > 1 && <Link href={eventUrl(eventPage - 1)}>Previous</Link>}
+        <span>{eventPage} / {Math.max(1, Math.ceil((eventCount ?? 0) / 25))}</span>{eventPage * 25 < (eventCount ?? 0) && <Link href={eventUrl(eventPage + 1)}>Next</Link>}</nav>
+    </section>
   </main>;
 }

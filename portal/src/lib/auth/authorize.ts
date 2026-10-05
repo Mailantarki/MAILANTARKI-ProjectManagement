@@ -87,6 +87,13 @@ export function authorizeUserCreation(p: Principal | null, organizationId: strin
   return role !== "super_admin" && organizationId !== null && p.organizationId === organizationId;
 }
 
+export function authorizeUserSuspension(p: Principal | null, target: {
+  id: string; organization_id: string | null; role: string;
+}): boolean {
+  return isAdminPrincipal(p) && p.userId !== target.id &&
+    (p.role === "super_admin" || (target.role === "member" && p.organizationId === target.organization_id));
+}
+
 export function authorizeUserAssignment(p: Principal | null, userId: string,
   userOrganizationId: string | null, userRole: "super_admin" | "org_admin" | "member",
   projectOrganizationId: string): boolean {

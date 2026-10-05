@@ -34,6 +34,33 @@ test.describe.serial("admin upload transition", () => {
     }
   });
 
+  test("document navigation returns to its entry point with filters", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(fixture.email);
+    await page.getByLabel("Password").fill(fixture.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/projects$/);
+    await page.goto("/projects/maylan-plaza?segment=interior-design&status=draft");
+    await page.getByRole("link", { name: "Manage documents", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Upload PDFs", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Upload documents", exact: true })).toBeVisible();
+    await page.locator(".back-link").click();
+    await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Back to project", exact: true }).click();
+    await expect(page).toHaveURL(/\/projects\/maylan-plaza\?/);
+    expect(new URL(page.url()).searchParams.get("segment")).toBe("interior-design");
+    expect(new URL(page.url()).searchParams.get("status")).toBe("draft");
+    await page.getByRole("link", { name: "Upload PDFs", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Upload documents", exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Back to project", exact: true }).click();
+    await expect(page).toHaveURL(/\/projects\/maylan-plaza\?/);
+    expect(new URL(page.url()).searchParams.get("segment")).toBe("interior-design");
+    await page.goto("/admin/projects/maylan-plaza/documents");
+    await page.locator(".back-link").click();
+    await expect(page).toHaveURL(/\/admin\/projects$/);
+  });
+
   test("prepare, upload and finalize make a private PDF visible", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("Email").fill(fixture.email);

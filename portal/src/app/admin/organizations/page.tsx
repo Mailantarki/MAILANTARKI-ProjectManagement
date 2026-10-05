@@ -1,4 +1,8 @@
 import { getUserClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
+import { LogoField } from "./logo-field";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/lib/auth/principal";
 import { authorizeSuperAdmin, isAdminPrincipal } from "@/lib/auth/authorize";
@@ -12,11 +16,16 @@ export default async function OrganizationsPage() {
   const { data: organizations, error } = await user.from("organizations")
     .select("id,name,logo_url,archived_at").order("name");
   if (error) throw new Error("Could not load organizations");
-  return <main className="main portal"><h1>Organizations</h1>
+  const previews = new Map(await Promise.all((organizations ?? []).map(async (org) => {
+    if (!org.logo_url || /^https?:\/\//.test(org.logo_url)) return [org.id, org.logo_url] as const;
+    const { data } = await getAdminClient().storage.from("project-covers").createSignedUrl(org.logo_url, 3600);
+    return [org.id, data?.signedUrl ?? null] as const;
+  })));
+  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><h1>Organizations</h1>
     {authorizeSuperAdmin(principal) && <section className="admin-section"><h2>New organization</h2>
       <AdminForm action={saveOrganization} label="Create organization">
         <label className="field">Name<input name="name" required maxLength={120} /></label>
-        <label className="field">Logo URL<input name="logoUrl" type="url" /></label>
+        <LogoField />
       </AdminForm></section>}
     <section className="admin-section"><h2>Active</h2>
       {(organizations ?? []).filter((org) => !org.archived_at).map((org) => <div className="admin-record" key={org.id}>
@@ -24,7 +33,7 @@ export default async function OrganizationsPage() {
         <AdminForm action={saveOrganization} label="Save changes">
           <input type="hidden" name="id" value={org.id} />
           <label className="field">Name<input name="name" defaultValue={org.name} required maxLength={120} /></label>
-          <label className="field">Logo URL<input name="logoUrl" type="url" defaultValue={org.logo_url ?? ""} /></label>
+          <LogoField key={org.logo_url ?? "empty"} previewUrl={previews.get(org.id)} />
         </AdminForm>
         <AdminForm action={setOrganizationArchived} label="Archive" confirmMessage={`Archive ${org.name} and hide its projects?`}>
           <input type="hidden" name="id" value={org.id} /><input type="hidden" name="archived" value="true" />

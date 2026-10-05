@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 import { getUserClient } from "@/lib/supabase/server";
 import { getPrincipal } from "@/lib/auth/principal";
 import { authorizeAdminOrganization, isAdminPrincipal } from "@/lib/auth/authorize";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { AdminForm } from "../admin-form";
 import { saveProject, setProjectArchived } from "../manage-actions";
+import { CoverImageField } from "./cover-image-field";
+import { ArrowLeft } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 export default async function AdminProjectsPage() {
   const principal = await getPrincipal();
@@ -17,24 +21,41 @@ export default async function AdminProjectsPage() {
   ]);
   if (error) throw new Error("Could not load projects");
   const available = (organizations ?? []).filter((org) => !org.archived_at && authorizeAdminOrganization(principal, org.id));
-  return <main className="main portal"><h1>Projects</h1>
-    {!!available.length && <section className="admin-section"><h2>New project</h2>
+  const admin = getAdminClient();
+  const previews = new Map(await Promise.all((projects ?? []).map(async (project) => {
+    if (!project.cover_image_url || /^https?:\/\//.test(project.cover_image_url)) {
+      return [project.id, project.cover_image_url] as const;
+    }
+    const { data } = await admin.storage.from("project-covers").createSignedUrl(project.cover_image_url, 3600);
+    return [project.id, data?.signedUrl ?? null] as const;
+  })));
+  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><p className="eyebrow">Administration</p><h1>Projects</h1>
+    {!!available.length && <Card className="new-project"><h2>New project</h2>
       <AdminForm action={saveProject} label="Create project">
         <label className="field">Organization<select name="organizationId">{available.map((org) =>
           <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>
         <label className="field">Name<input name="name" required maxLength={160} /></label>
         <label className="field">Slug<input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={100} /></label>
         <label className="field">Location<input name="location" maxLength={160} /></label>
+        <details className="new-project-options"><summary>Additional details</summary>
         <label className="field">Description<textarea name="description" maxLength={2000} /></label>
-        <label className="field">Cover image URL<input name="coverImageUrl" type="url" /></label>
+        <CoverImageField />
         <label className="check-field"><input name="isPublic" type="checkbox" /> Public listing</label>
-      </AdminForm></section>}
+        </details>
+      </AdminForm></Card>}
     <section className="admin-section"><h2>Active</h2>
+      <div className="admin-project-grid">
       {(projects ?? []).filter((project) => !project.archived_at).map((project) =>
-        <div className="admin-record" key={project.id}>
-          <div className="admin-record-heading"><strong>{project.name}</strong>
-            <Link href={`/admin/projects/${project.slug}/documents`}>Documents</Link>
-            <Link href={`/admin/projects/${project.slug}/documents/new`}>Upload PDFs</Link></div>
+        <Card className="admin-record project-admin-card" key={project.id}>
+          <div><h3 className="card-title">{project.name}</h3><p className="card-meta">{project.location}</p></div>
+          <div className="card-actions">
+            <Link href={`/admin/projects/${project.slug}/documents`}>Manage documents</Link>
+            <Link href={`/admin/projects/${project.slug}/documents/new`}>Upload PDFs</Link>
+            <AdminForm action={setProjectArchived} label="Archive" confirmMessage={`Archive ${project.name}?`}>
+              <input type="hidden" name="id" value={project.id} /><input type="hidden" name="archived" value="true" />
+            </AdminForm>
+          </div>
+          <details className="project-editor"><summary>Edit project</summary>
           <AdminForm action={saveProject} label="Save changes">
             <input type="hidden" name="id" value={project.id} />
             <input type="hidden" name="organizationId" value={project.organization_id} />
@@ -42,22 +63,21 @@ export default async function AdminProjectsPage() {
             <label className="field">Slug<input name="slug" defaultValue={project.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" /></label>
             <label className="field">Location<input name="location" defaultValue={project.location ?? ""} /></label>
             <label className="field">Description<textarea name="description" defaultValue={project.description ?? ""} /></label>
-            <label className="field">Cover image URL<input name="coverImageUrl" type="url" defaultValue={project.cover_image_url ?? ""} /></label>
+            <CoverImageField currentPreviewUrl={previews.get(project.id)} projectId={project.id} />
             <label className="check-field"><input name="isPublic" type="checkbox" defaultChecked={project.is_public} /> Public listing</label>
           </AdminForm>
-          <AdminForm action={setProjectArchived} label="Archive" confirmMessage={`Archive ${project.name}?`}>
-            <input type="hidden" name="id" value={project.id} /><input type="hidden" name="archived" value="true" />
-          </AdminForm>
-        </div>)}
+          </details>
+        </Card>)}
+      </div>
       {!projects?.some((project) => !project.archived_at) && <p className="empty-results">No active projects.</p>}
     </section>
     <section className="admin-section"><h2>Archived</h2>
       {(projects ?? []).filter((project) => project.archived_at).map((project) =>
-        <div className="admin-record" key={project.id}><strong>{project.name}</strong>
+        <Card className="admin-record project-admin-card" key={project.id}><strong>{project.name}</strong>
           <Link href={`/admin/projects/${project.slug}/documents`}>Documents</Link>
           <AdminForm action={setProjectArchived} label="Restore">
             <input type="hidden" name="id" value={project.id} /><input type="hidden" name="archived" value="false" />
-          </AdminForm></div>)}
+          </AdminForm></Card>)}
       {!projects?.some((project) => project.archived_at) && <p className="empty-results">No archived projects.</p>}
     </section>
   </main>;

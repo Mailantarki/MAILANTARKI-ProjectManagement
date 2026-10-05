@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getPrincipal } from "@/lib/auth/principal";
-import { authorize, authorizeAdminOrganization, authorizeUserAssignment, authorizeUserCreation } from "@/lib/auth/authorize";
+import { authorize, authorizeAdminOrganization, authorizeUserAssignment, authorizeUserCreation, authorizeUserSuspension } from "@/lib/auth/authorize";
 import { getUserClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 
@@ -38,10 +38,19 @@ export async function createUser(form: FormData): Promise<{ password: string }> 
   const { error: profileError } = await admin.from("profiles").insert({
     id: data.user.id, organization_id: input.organizationId,
     role: input.role, full_name: input.fullName,
+    must_change_password: true,
   });
   if (profileError) {
     await admin.auth.admin.deleteUser(data.user.id);
     throw new Error("Could not create user profile");
+  }
+  const { error: auditError } = await admin.from("admin_events").insert({
+    actor_id: principal?.kind === "user" ? principal.userId : null, target_user_id: data.user.id,
+    organization_id: input.organizationId, action: "user_created",
+  });
+  if (auditError) {
+    await admin.auth.admin.deleteUser(data.user.id);
+    throw new Error("Could not create user");
   }
   revalidatePath("/admin/users");
   return { password };
@@ -73,6 +82,32 @@ export async function grantUserAccess(form: FormData) {
     segment_id: input.segmentId, can_download: input.canDownload,
   });
   if (error) throw new Error(error.code === "23505" ? "Assignment already exists" : "Could not assign access");
+  revalidatePath("/admin/users");
+}
+
+export async function setUserSuspended(form: FormData) {
+  const id = uuid.parse(form.get("userId"));
+  const suspended = z.enum(["true", "false"]).parse(form.get("suspended")) === "true";
+  const principal = await getPrincipal();
+  const user = await getUserClient();
+  const { data: target } = await user.from("profiles").select("id,organization_id,role").eq("id", id).maybeSingle();
+  if (!target || !authorizeUserSuspension(principal, target)) throw new Error("Not authorized");
+  // Database state blocks existing JWTs first. Auth ban additionally blocks direct sign-ins.
+  if (suspended) {
+    const { error } = await user.rpc("set_user_suspended", { p_user: id, p_suspended: true });
+    if (error) throw new Error("Could not suspend user");
+  }
+  const { error: authError } = await getAdminClient().auth.admin.updateUserById(id, {
+    ban_duration: suspended ? "876000h" : "none",
+  });
+  if (authError) {
+    revalidatePath("/admin/users");
+    throw new Error(suspended ? "Portal access blocked. Auth synchronization failed; retry suspension." : "Could not reactivate user");
+  }
+  if (!suspended) {
+    const { error } = await user.rpc("set_user_suspended", { p_user: id, p_suspended: false });
+    if (error) throw new Error("Could not reactivate user");
+  }
   revalidatePath("/admin/users");
 }
 

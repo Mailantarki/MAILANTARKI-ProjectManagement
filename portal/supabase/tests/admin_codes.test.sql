@@ -42,5 +42,23 @@ reset role;
 select is((select count(*) from public.access_codes where label='Architecture only' and code_hash ~ '^[0-9a-f]{64}$'),
   1::bigint,'only hash is stored');
 
+insert into public.access_logs(access_code_id,action)
+select id,'code_redeem' from public.access_codes where label='Architecture only';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','44000000-0000-0000-0000-000000000001',true);
+select lives_ok($$update public.access_codes set is_active=false,deleted_at=now()
+  where label='Architecture only'$$,'org admin can soft-delete own code');
+select throws_ok($$update public.access_codes set is_active=true where label='Architecture only'$$,
+  '23514',null,'deleted code cannot be reactivated directly');
+select throws_ok($$update public.access_codes set deleted_at=null where label='Architecture only'$$,
+  'P0001','deleted_code_cannot_be_restored','deletion cannot be cleared directly');
+reset role;
+select is((select count(*) from public.access_logs l join public.access_codes c on c.id=l.access_code_id
+  where c.label='Architecture only'),1::bigint,'soft deletion preserves access history');
+set local role service_role;
+select is((select count(*) from public.redeem_access_code(repeat('d',64))),0::bigint,
+  'deleted code cannot be redeemed');
+reset role;
+
 select * from finish();
 rollback;

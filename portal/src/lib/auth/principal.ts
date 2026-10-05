@@ -13,8 +13,9 @@ export async function getPrincipal(): Promise<Principal | null> {
   const { data: { user }, error } = await client.auth.getUser();
   if (!error && user) {
     const { data: profile } = await client.from("profiles")
-      .select("role,organization_id").eq("id", user.id).maybeSingle();
-    if (!profile) return null;
+      .select("role,organization_id,suspended_at,must_change_password").eq("id", user.id).maybeSingle();
+    if (!profile || profile.suspended_at || profile.must_change_password || user.deleted_at ||
+      (user.banned_until && Date.parse(user.banned_until) > Date.now())) return null;
     return { kind: "user", userId: user.id, role: profile.role, organizationId: profile.organization_id };
   }
   const token = (await cookies()).get("visitor_session")?.value;
