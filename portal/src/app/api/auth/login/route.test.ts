@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-const state = vi.hoisted(() => ({ failures: 0, valid: false, logs: 0 }));
+const state = vi.hoisted(() => ({ failures: 0, valid: false, logs: 0, mustChangePassword: false }));
 vi.mock("../../../../lib/auth/rate-limit", () => ({
   requestIp: () => "127.0.0.1",
   reserveAttempt: async () => state.failures < 5 ? ++state.failures : null,
@@ -12,7 +12,7 @@ vi.mock("../../../../lib/supabase/server", () => ({ getUserClient: async () => (
   signInWithPassword: async () => state.valid ? { data: { user: { id: "user-a" } }, error: null } : { data: { user: null }, error: new Error("bad") },
   signOut: async () => {},
 }, from: () => ({
-  select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { organization_id: "org-a" } }) }) }),
+  select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { organization_id: "org-a", must_change_password: state.mustChangePassword } }) }) }),
 }) }) }));
 vi.mock("../../../../lib/auth/log", () => ({ logAccess: async () => { state.logs++; } }));
 
@@ -23,13 +23,20 @@ const request = (email = "person@example.com", password = "password123456") => n
 });
 
 describe("login", () => {
-  beforeEach(() => { state.failures = 0; state.valid = false; state.logs = 0; });
+  beforeEach(() => { state.failures = 0; state.valid = false; state.logs = 0; state.mustChangePassword = false; });
   it("accepts valid credentials and logs in", async () => {
     state.valid = true;
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ redirectTo: "/projects" });
     expect(state.logs).toBe(1);
+  });
+  it("sends new users with a temporary password to the password change page", async () => {
+    state.valid = true;
+    state.mustChangePassword = true;
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ redirectTo: "/change-password" });
   });
   it("uses the same generic error for invalid credentials and invalid input", async () => {
     const first = await POST(request());

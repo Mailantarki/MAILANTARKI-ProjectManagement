@@ -83,3 +83,23 @@ export async function deleteAccessCode(form: FormData) {
   if (error || !data) throw new Error("Could not delete access code");
   revalidatePath("/admin/codes");
 }
+
+const extendInput = z.object({
+  id: uuid,
+  // ISO timestamp in the future, or "" for no expiry.
+  expiresAt: z.union([z.iso.datetime(), z.literal("")]),
+});
+
+export async function extendAccessCode(form: FormData) {
+  const input = extendInput.parse({ id: form.get("id"), expiresAt: form.get("expiresAt") ?? "" });
+  if (input.expiresAt && Date.parse(input.expiresAt) <= Date.now()) throw new Error("Choose a date in the future");
+  const principal = await getPrincipal();
+  const user = await getUserClient();
+  const { data: code } = await user.from("access_codes").select("id,organization_id")
+    .eq("id", input.id).is("deleted_at", null).maybeSingle();
+  if (!code || !authorizeAdminOrganization(principal, code.organization_id)) throw new Error("Code not found");
+  const { error } = await user.from("access_codes").update({ expires_at: input.expiresAt || null })
+    .eq("id", input.id).is("deleted_at", null);
+  if (error) throw new Error("Could not extend access code");
+  revalidatePath("/admin/codes");
+}

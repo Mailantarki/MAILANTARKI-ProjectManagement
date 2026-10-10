@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { admin, askEmail, askName, createAuthProfile, temporaryPassword } from "./cli-common";
+import { admin, askEmail, askName, cliArgs, confirmTargetHost, createAuthProfile, temporaryPassword } from "./cli-common";
 
 function arg(name: string) {
-  const index = process.argv.indexOf(`--${name}`);
-  return index >= 0 ? process.argv[index + 1] : undefined;
+  const index = cliArgs.indexOf(`--${name}`);
+  return index >= 0 ? cliArgs[index + 1] : undefined;
 }
 async function main() {
+  await confirmTargetHost();
   const role = z.enum(["org_admin", "member"]).parse(arg("role") ?? "member");
   const email = z.email().parse(arg("email") ?? await askEmail());
   const fullName = z.string().min(1).max(120).parse(await askName());

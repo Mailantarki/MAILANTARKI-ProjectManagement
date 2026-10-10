@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { copy } from "../lib/copy";
 
-export function CodeForm() {
+export function CodeForm({ next = null }: { next?: string | null }) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -13,7 +13,7 @@ export function CodeForm() {
     try {
       const response = await fetch("/api/access-code/redeem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
       if (!response.ok) { setError(copy.invalidCode); return; }
-      router.push("/projects"); router.refresh();
+      router.push(next ?? "/projects"); router.refresh();
     } catch { setError(copy.invalidCode); } finally { setPending(false); }
   }
   return <form className="form" onSubmit={submit}><label className="field">{copy.enterCode}<input value={code} onChange={(event) => setCode(event.target.value)} placeholder="XXXXX-XXXXX" autoComplete="off" /></label>

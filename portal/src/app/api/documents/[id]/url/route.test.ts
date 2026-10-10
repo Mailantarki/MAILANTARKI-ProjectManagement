@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const state = vi.hoisted(() => ({ principal: null as null | { kind: string; userId?: string; accessCodeId?: string },
-  allowed: true, downloadable: true, document: true, logs: 0, calls: [] as string[], signed: 0 }));
+  allowed: true, downloadable: true, document: true, logs: 0, calls: [] as string[], signed: 0,
+  superseded: false, filename: "" }));
 vi.mock("../../../../../lib/auth/principal", () => ({ getPrincipal: async () => state.principal }));
 vi.mock("../../../../../lib/auth/authorize", () => ({ authorize: async (_p: unknown, _t: unknown, action: string) => {
   state.calls.push(`authorize:${action}`); return action === "download" ? state.downloadable : state.allowed;
@@ -11,8 +12,10 @@ vi.mock("../../../../../lib/auth/log", () => ({ logAccess: async () => { state.c
 vi.mock("../../../../../lib/supabase/admin", () => ({ getAdminClient: () => ({
   from: (table: string) => table === "documents" ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: state.document ? {
     id: "doc", project_id: "project", segment_id: "segment", file_path: "private.pdf", upload_status: "ready", archived_at: null, doc_number: "A1", projects: { organization_id: "org" },
+    revision: "B", is_current: !state.superseded,
   } : null, error: null }) }) }) } : { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { label: "Guest" } }) }) }) },
-  storage: { from: () => ({ createSignedUrl: async (_path: string, seconds: number) => {
+  storage: { from: () => ({ createSignedUrl: async (_path: string, seconds: number, options?: { download?: string }) => {
+    state.filename = options?.download ?? "";
     state.calls.push(`sign:${seconds}`); state.signed++; return { data: { signedUrl: "https://storage.test/signed" }, error: null };
   } }) },
 }) }));
@@ -35,6 +38,14 @@ describe("document URL", () => {
     state.principal = { kind: "visitor", accessCodeId: "code" }; state.downloadable = false;
     expect((await run("1")).status).toBe(404);
     expect(state.logs).toBe(0);
+  });
+  it("marks the file name of a superseded revision", async () => {
+    state.principal = { kind: "user", userId: "member" }; state.superseded = true;
+    await run("1");
+    expect(state.filename).toBe("A1_Rev-B_SUPERSEDED.pdf");
+    state.superseded = false;
+    await run("1");
+    expect(state.filename).toBe("A1.pdf");
   });
   it("logs before signing, limits lifetime to 300 seconds, and never exposes the path", async () => {
     state.principal = { kind: "user", userId: "member" };

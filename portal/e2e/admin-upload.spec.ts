@@ -76,8 +76,8 @@ test.describe.serial("admin upload transition", () => {
     await page.locator('input[type="file"]').setInputFiles({
       name: `${fixture.number}.pdf`, mimeType: "application/pdf", buffer: bytes,
     });
-    await expect(page.getByRole("cell", { name: `${fixture.number}.pdf` })).toBeVisible();
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("region", { name: `${fixture.number}.pdf` })).toBeVisible();
+    await page.getByRole("button", { name: /^Publish \d+ files?$/ }).click();
     await expect(page.getByRole("status")).toHaveText("Complete");
 
     const { data: document, error } = await admin.from("documents").select("id,upload_status,file_size")
@@ -106,8 +106,8 @@ test.describe.serial("admin upload transition", () => {
     await page.goto("/projects/maylan-plaza");
     await expect(page.getByRole("row", { name: new RegExp(fixture.number) }).locator(".featured-star")).toBeVisible();
     await page.goto("/admin/projects/maylan-plaza/documents");
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("row", { name: new RegExp(fixture.number) }).getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("dialog", { name: "Archive" }).getByRole("button", { name: "Archive" }).click();
     await expect(page.getByRole("heading", { name: "Archived (1)" })).toBeVisible();
     await page.goto("/projects/maylan-plaza");
     await expect(page.getByRole("cell", { name: fixture.number })).toHaveCount(0);
@@ -136,10 +136,10 @@ test.describe.serial("admin upload transition", () => {
       if (!interrupted) { interrupted = true; await route.abort(); }
       else await route.continue();
     });
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: /^Publish \d+ files?$/ }).click();
     await expect(page.getByRole("status")).toContainText("Failed");
     expect(interrupted).toBe(true);
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: /^Publish \d+ files?$/ }).click();
     await expect(page.getByRole("status")).toHaveText("Complete");
     const { data, error } = await admin.from("documents").select("id,upload_status")
       .eq("project_id", fixture.projectId).eq("doc_number", fixture.retryNumber);

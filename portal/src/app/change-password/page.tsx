@@ -11,6 +11,6 @@ export default async function ChangePasswordPage() {
   if (!profile || profile.suspended_at) redirect("/login");
   if (!profile.must_change_password) redirect("/projects");
   return <main className="main portal password-page"><h1>Choose your password</h1>
-    <p>Your account requires a new password before accessing projects.</p><PasswordForm />
+    <p>Your administrator created this account with a temporary password. Choose your own to continue.</p><PasswordForm />
     <form action={signOut}><button className="button secondary">Sign out</button></form></main>;
 }

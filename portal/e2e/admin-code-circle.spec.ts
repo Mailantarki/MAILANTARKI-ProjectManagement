@@ -47,12 +47,13 @@ test.describe.serial("admin code to isolated visitor session", () => {
     await expect(page).toHaveURL(/\/projects$/);
     await page.goto("/admin/codes");
     await expect(page.getByRole("heading", { name: "Access codes" })).toBeVisible();
-    await page.getByLabel("Label").fill(`Circle ${fixture.email}`);
-    await page.getByLabel("Project").selectOption({ label: "MAILANTARKI Sports Complex" });
-    await page.getByLabel("Discipline").selectOption({ label: "Architecture" });
-    await page.getByRole("button", { name: "Create code" }).click();
-    const dialog = page.getByRole("dialog", { name: "Access code created" });
-    await expect(dialog).toBeVisible();
+    await page.getByRole("button", { name: "New code" }).click();
+    const dialog = page.getByRole("dialog", { name: "New access code" });
+    await dialog.getByLabel("Label").fill(`Circle ${fixture.email}`);
+    await dialog.getByLabel("Project").selectOption({ label: "MAILANTARKI Sports Complex" });
+    await dialog.getByLabel("Discipline").selectOption({ label: "Architecture" });
+    await dialog.getByRole("button", { name: "Create code" }).click();
+    await expect(dialog.getByRole("heading", { name: "Access code created" })).toBeVisible();
     const code = (await dialog.locator("code").textContent())!.trim();
     expect(code).toMatch(/^[A-Z2-9]{5}-[A-Z2-9]{5}$/);
     const { data: saved, error } = await admin.from("access_codes").select("id,code_hash")
@@ -76,9 +77,9 @@ test.describe.serial("admin code to isolated visitor session", () => {
       await expect(tabs.getByRole("link", { name: /Mechanical Electrical/ })).toHaveCount(0);
       const unauthorized = await visitor.request.get(`/api/documents/${fixture.documents[1]}/url`);
       expect(unauthorized.status()).toBe(404);
-      page.on("dialog", (prompt) => prompt.accept());
       await page.getByRole("row", { name: new RegExp(`Circle ${fixture.email}`) })
         .getByRole("button", { name: "Revoke" }).click();
+      await page.getByRole("dialog", { name: "Revoke" }).getByRole("button", { name: "Revoke" }).click();
       await expect(page.getByRole("row", { name: new RegExp(`Circle ${fixture.email}`) })).toContainText("Revoked");
       const afterRevoke = await visitor.request.get(`/api/documents/${fixture.documents[0]}/url`);
       expect([401, 404]).toContain(afterRevoke.status());
@@ -90,6 +91,7 @@ test.describe.serial("admin code to isolated visitor session", () => {
       await visitor.getByRole("button", { name: "Enter access code" }).click();
       await expect(visitor).toHaveURL(/\/projects$/);
       await row.getByRole("button", { name: "Delete code" }).click();
+      await page.getByRole("dialog", { name: "Delete code" }).getByRole("button", { name: "Delete code" }).click();
       await expect(row).toHaveCount(0);
       await page.reload();
       await expect(row).toHaveCount(0);

@@ -13,7 +13,10 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
   let response = NextResponse.next({ request: { headers: requestHeaders } });
 
-  if (request.nextUrl.pathname.startsWith("/projects")) {
+  // Refresh the Supabase session on every signed-in area. Server Components cannot write cookies,
+  // so without this an expired token is refreshed (and not saved) on every admin request.
+  const path = request.nextUrl.pathname;
+  if (["/projects", "/admin", "/change-password"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
     const client = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
       cookies: {
         getAll: () => request.cookies.getAll(),
@@ -26,7 +29,9 @@ export async function proxy(request: NextRequest) {
         },
       },
     });
-    await client.auth.getClaims();
+    // Only refreshes an expired token and saves the new cookies; no network call otherwise.
+    // Authorization happens in getPrincipal(), which verifies the token.
+    await client.auth.getSession();
     response.headers.set("Cache-Control", "private, no-store");
   }
   response.headers.set("Content-Security-Policy", csp);

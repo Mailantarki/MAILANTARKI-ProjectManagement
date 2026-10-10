@@ -7,6 +7,40 @@ import { authorize } from "@/lib/auth/authorize";
 import { getUserClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { documentMetaSchema, MAX_PDF_BYTES } from "@/lib/admin/upload-schema";
+import { classifyUploads, type Classification } from "@/lib/documents/classify";
+
+const reviewSchema = z.object({
+  projectId: z.uuid(),
+  rows: z.array(z.object({
+    key: z.string().min(1).max(64),
+    segmentId: z.uuid(),
+    docNumber: z.string().max(60),
+    revision: z.string().trim().max(10),
+  })).max(200),
+});
+
+/**
+ * Step 2 of the upload ("Review"): what publishing each file will do, compared with the revisions
+ * already in the project. Read-only; runs under the admin's own session (RLS).
+ */
+export async function reviewUploads(input: unknown): Promise<Record<string, Classification>> {
+  const { projectId, rows } = reviewSchema.parse(input);
+  if (!rows.length) return {};
+  const principal = await getPrincipal();
+  const segmentIds = [...new Set(rows.map((row) => row.segmentId))];
+  const allowed = await Promise.all(segmentIds.map((segmentId) => authorize(principal, { projectId, segmentId }, "admin_upload")));
+  if (!principal || allowed.includes(false)) throw new Error("Not authorized");
+  const numbers = [...new Set(rows.map((row) => row.docNumber.trim()).filter(Boolean))];
+  if (!numbers.length) return classifyUploads(rows, []);
+  const { data, error } = await (await getUserClient()).from("documents")
+    .select("segment_id,doc_number,revision,is_current")
+    .eq("project_id", projectId).in("segment_id", segmentIds).in("doc_number", numbers)
+    .eq("upload_status", "ready").is("archived_at", null).limit(2000);
+  if (error) throw new Error("Could not check existing revisions");
+  return classifyUploads(rows, (data ?? []).map((row) => ({
+    segmentId: row.segment_id, docNumber: row.doc_number, revision: row.revision, isCurrent: row.is_current,
+  })));
+}
 
 export async function prepareUpload(input: unknown) {
   const meta = documentMetaSchema.parse(input);

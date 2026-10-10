@@ -37,6 +37,19 @@ describe("authorize", () => {
     expect(await authorizeWithReader(user("member", "org-b"), target, "view", db())).toBe(false);
     expect(await authorizeWithReader(user("member"), target, "download", db({ member: async () => [{ can_download: true }] }))).toBe(true);
   });
+  it("applies project-wide and exact-segment member grants", async () => {
+    const grants = [
+      { segmentId: null, can_download: false },
+      { segmentId: "architecture", can_download: true },
+    ];
+    const reader = db({
+      member: async (_userId: string, _projectId: string, segmentId: string) =>
+        grants.filter((grant) => grant.segmentId === null || grant.segmentId === segmentId),
+    });
+    expect(await authorizeWithReader(user("member"), { projectId: "project-a", segmentId: "mep" }, "view", reader)).toBe(true);
+    expect(await authorizeWithReader(user("member"), { projectId: "project-a", segmentId: "architecture" }, "download", reader)).toBe(true);
+    expect(await authorizeWithReader(user("member"), { projectId: "project-a", segmentId: "sales-plan" }, "download", reader)).toBe(false);
+  });
   it("limits visitors by grant, expiry, revocation and download flag", async () => {
     expect(await authorizeWithReader(visitor, target, "view", db())).toBe(true);
     expect(await authorizeWithReader(visitor, target, "download", db())).toBe(false);
@@ -44,5 +57,19 @@ describe("authorize", () => {
     expect(await authorizeWithReader(visitor, target, "view", db({ grants: async () => false }))).toBe(false);
     expect(await authorizeWithReader(visitor, target, "view", db({ code: async () => ({ organization_id: "org-a", is_active: false, expires_at: null, allow_download: true }) }))).toBe(false);
     expect(await authorizeWithReader(visitor, target, "view", db({ code: async () => ({ organization_id: "org-a", is_active: true, expires_at: "2020-01-01", allow_download: true }) }))).toBe(false);
+  });
+  it("applies project-wide and exact-segment visitor grants", async () => {
+    const targetSegments = new Set(["mep"]);
+    const projectWide = false;
+    const reader = db({
+      grants: async (_codeId: string, projectId: string, segmentId: string) =>
+        projectId === "project-a" && (projectWide || targetSegments.has(segmentId)),
+    });
+    expect(await authorizeWithReader(visitor, { projectId: "project-a", segmentId: "mep" }, "view", reader)).toBe(true);
+    expect(await authorizeWithReader(visitor, { projectId: "project-a", segmentId: "architecture" }, "view", reader)).toBe(false);
+    expect(await authorizeWithReader(visitor, { projectId: "project-b", segmentId: "mep" }, "view", reader)).toBe(false);
+
+    const projectGrantReader = db({ grants: async (_codeId: string, projectId: string) => projectId === "project-a" });
+    expect(await authorizeWithReader(visitor, { projectId: "project-a", segmentId: "sales-plan" }, "view", projectGrantReader)).toBe(true);
   });
 });

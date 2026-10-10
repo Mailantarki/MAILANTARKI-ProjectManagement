@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { z } from "zod";
-import { admin, cliEnv } from "./cli-common";
+import { admin, cliArgs, cliEnv, confirmTargetHost } from "./cli-common";
 
-const args = process.argv.slice(2);
+const args = cliArgs;
 const option = (flag: string) => {
   const index = args.indexOf(`--${flag}`);
   return index >= 0 ? args[index + 1] : undefined;
@@ -26,6 +26,7 @@ async function samplePdf(projectName: string, segmentName: string) {
 }
 
 async function main() {
+  await confirmTargetHost();
   const host = new URL(cliEnv.NEXT_PUBLIC_SUPABASE_URL).hostname;
   if (host !== "localhost" && host !== "127.0.0.1")
     throw new Error("This seed is restricted to local Supabase");

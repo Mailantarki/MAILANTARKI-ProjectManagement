@@ -9,28 +9,33 @@ import { AdminForm } from "../admin-form";
 import { CreateUserForm } from "./create-user-form";
 import { grantUserAccess, removeUserAccess, setUserSuspended } from "./actions";
 import { UserDialog } from "./dialog";
+import { FilterForm } from "@/components/documents/filter-form";
 
 const roles = { super_admin: "Super admin", org_admin: "Organization admin", member: "Member" };
 export default async function AdminUsersPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const principal = await getPrincipal();
-  if (!isAdminPrincipal(principal)) redirect("/login");
   const filters = parseUserFilters(await searchParams);
   const user = await getUserClient();
-  const { data, error } = await user.rpc("admin_user_directory", {
-    p_query: filters.q ?? "", p_role: filters.role ?? "", p_status: filters.status ?? "",
-    p_project: filters.projectId ?? null, p_organization: filters.organizationId ?? null, p_page: filters.page ?? 1,
-  });
-  if (error) throw new Error("Could not load users");
-  const directory = directorySchema.parse(data);
-  const [{ data: organizations }, { data: projects }, { data: segments }, { data: assignments }] = await Promise.all([
+  // The directory and the lookup lists are independent: fetch them in one parallel round.
+  // Queries run under RLS, so they start while the session is verified; nothing renders unless the viewer is an admin.
+  const [principal, { data, error }, { data: organizations }, { data: projects }, { data: segments }] = await Promise.all([
+    getPrincipal(),
+    user.rpc("admin_user_directory", {
+      p_query: filters.q ?? "", p_role: filters.role ?? "", p_status: filters.status ?? "",
+      p_project: filters.projectId ?? null, p_organization: filters.organizationId ?? null, p_page: filters.page ?? 1,
+    }),
     user.from("organizations").select("id,name").is("archived_at", null).order("name"),
     user.from("projects").select("id,name,organization_id").is("archived_at", null).order("name"),
     user.from("segments").select("id,name").order("sort_order"),
-    directory.users.length ? user.from("user_project_access").select("id,user_id,project_id,segment_id,can_download")
-      .in("user_id", directory.users.map((profile) => profile.id)) : Promise.resolve({ data: [] }),
   ]);
+  if (!isAdminPrincipal(principal)) redirect("/login");
+  if (error) throw new Error("Could not load users");
+  const directory = directorySchema.parse(data);
+  const { data: assignments } = directory.users.length
+    ? await user.from("user_project_access").select("id,user_id,project_id,segment_id,can_download")
+      .in("user_id", directory.users.map((profile) => profile.id))
+    : { data: [] };
   const availableOrganizations = (organizations ?? []).filter((org) => authorizeAdminOrganization(principal, org.id));
   const isSuper = authorizeSuperAdmin(principal);
   const pages = Math.max(1, Math.ceil(directory.total / 25));
@@ -44,8 +49,8 @@ export default async function AdminUsersPage({ searchParams }: {
     <div className="admin-page-title"><h1>Users</h1><UserDialog title="Create user" label="New user">
       <CreateUserForm organizations={availableOrganizations} canCreateSuper={isSuper} />
     </UserDialog></div>
-    <form className="filters user-filters" method="get">
-      <label>Search<input name="q" placeholder="Name or email" defaultValue={filters.q ?? ""} maxLength={120} /></label>
+    <FilterForm className="user-filters" activeCount={[filters.projectId, filters.role, filters.status, filters.organizationId].filter(Boolean).length}
+      search={<label>Search<input name="q" type="search" placeholder="Name or email" defaultValue={filters.q ?? ""} maxLength={120} autoComplete="off" /></label>}>
       <label>Project<select name="projectId" defaultValue={filters.projectId ?? ""}><option value="">All projects</option>
         {(projects ?? []).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
       <label>Role<select name="role" defaultValue={filters.role ?? ""}><option value="">All roles</option>
@@ -54,8 +59,8 @@ export default async function AdminUsersPage({ searchParams }: {
         <option value="active">Active</option><option value="suspended">Suspended</option><option value="pending">Password change required</option></select></label>
       {isSuper && <label>Organization<select name="organizationId" defaultValue={filters.organizationId ?? ""}><option value="">All organizations</option>
         {availableOrganizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>}
-      <button type="submit">Apply filters</button><Link href="/admin/users">Clear</Link>
-    </form>
+      <Link className="clear-filters" href="/admin/users">Clear</Link>
+    </FilterForm>
     <p className="results-count">{directory.total} users</p>
     <div className="table-scroll"><table className="document-table users-table"><thead><tr>
       <th>User</th><th>Role</th><th>Access</th><th>Status</th><th>Last sign-in</th><th>Actions</th>
@@ -68,7 +73,7 @@ export default async function AdminUsersPage({ searchParams }: {
       return <tr key={profile.id}>
         <td data-label="User"><strong>{profile.full_name}</strong><span className="user-meta">{profile.email}</span>
           {isSuper && <span className="user-meta">{profile.organization_name ?? "All organizations"}</span>}</td>
-        <td data-label="Role">{roles[profile.role]}</td><td data-label="Access">{profile.role === "member" ? `${profile.project_count} projects` : "Role-based access"}</td>
+        <td data-label="Role">{roles[profile.role]}</td><td data-label="Access">{profile.role === "member" ? `${profile.project_count} ${profile.project_count === 1 ? "project" : "projects"}` : "Role-based access"}</td>
         <td data-label="Status"><span className={`status-badge ${suspended ? "status-revoked" : profile.must_change_password ? "status-draft" : "status-active"}`}>{status}</span></td>
         <td data-label="Last sign-in">{profile.last_sign_in_at ? <time dateTime={profile.last_sign_in_at} title={profile.last_sign_in_at}>
           {new Date(profile.last_sign_in_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC</time> : "No sign-in recorded"}</td>
@@ -79,7 +84,7 @@ export default async function AdminUsersPage({ searchParams }: {
           {grants.map((grant) => <div className="user-grant" key={grant.id}>
             <strong>{projects?.find((p) => p.id === grant.project_id)?.name ?? "Archived project"}</strong>
             <span>{segments?.find((s) => s.id === grant.segment_id)?.name ?? "All disciplines"}{grant.can_download ? " · Download allowed" : ""}</span>
-            {ownedProjects.some((p) => p.id === grant.project_id) && <AdminForm action={removeUserAccess} label="Remove access" customConfirmation
+            {ownedProjects.some((p) => p.id === grant.project_id) && <AdminForm action={removeUserAccess} label="Remove access" danger
               confirmMessage={`Remove this project/discipline assignment from ${profile.full_name}?`}>
               <input type="hidden" name="assignmentId" value={grant.id} /></AdminForm>}
           </div>)}
@@ -91,7 +96,7 @@ export default async function AdminUsersPage({ searchParams }: {
             <label className="check-field"><input type="checkbox" name="canDownload" />Allow download</label>
           </AdminForm></section>}
           {authorizeUserSuspension(principal, profile) && <section className="user-panel-section"><h3>Account status</h3>
-            <AdminForm action={setUserSuspended} label={suspended ? "Reactivate user" : "Suspend user"} customConfirmation
+            <AdminForm action={setUserSuspended} label={suspended ? "Reactivate user" : "Suspend user"} danger={!suspended}
               confirmMessage={suspended ? `Restore portal access for ${profile.full_name}? Existing assignments will be retained.` : `Suspend ${profile.full_name}? Portal access will be blocked, including existing sessions. Assignments and history will be retained.`}>
               <input type="hidden" name="userId" value={profile.id} /><input type="hidden" name="suspended" value={String(!suspended)} />
             </AdminForm></section>}

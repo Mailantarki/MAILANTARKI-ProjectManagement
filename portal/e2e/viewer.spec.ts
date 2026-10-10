@@ -105,7 +105,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
       await expect(tabs.getByRole("link", { name: tabNames[segment] })).toHaveCount(0);
     }
     await page.getByRole("button", { name: "View" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "PDF viewer" });
+    const dialog = page.getByRole("dialog");
     await expect(dialog.locator("canvas.react-pdf__Page__canvas")).toBeVisible();
     await expect(dialog.getByText("1 / 3")).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Download" })).toHaveCount(0);
@@ -150,7 +150,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.goto("/projects/mauritius-golf-estate");
     await page.screenshot({ path: "/tmp/mailantarki-unified-project.png", fullPage: true });
     await page.getByRole("button", { name: "View" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "PDF viewer" });
+    const dialog = page.getByRole("dialog");
     await expect(dialog.locator("canvas.react-pdf__Page__canvas")).toBeVisible();
     await expect(dialog.getByText("1 / 1")).toBeVisible();
   });

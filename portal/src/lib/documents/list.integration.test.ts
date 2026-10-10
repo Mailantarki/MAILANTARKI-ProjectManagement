@@ -89,9 +89,12 @@ describe("projectDocuments against local Postgres", () => {
       if (grantError) throw grantError;
 
       const admin = { kind: "user" as const, userId: randomUUID(), role: "super_admin" as const, organizationId: null };
+      const orgAdmin = { kind: "user" as const, userId: randomUUID(), role: "org_admin" as const, organizationId: org.id };
       const member = { kind: "user" as const, userId: memberId, role: "member" as const, organizationId: org.id };
+      const noGrantMember = { ...member, userId: randomUUID() };
       const visitor = { kind: "visitor" as const, accessCodeId: codeId };
-      const check = async (principal: typeof admin | typeof member | typeof visitor,
+      const noGrantVisitor = { kind: "visitor" as const, accessCodeId: randomUUID() };
+      const check = async (principal: typeof admin | typeof orgAdmin | typeof member | typeof visitor,
         input: Record<string, string>, expected: number[]) => {
         const view = await projectDocuments(principal, slug, parseFilters(input));
         expect(view?.documents.map((d) => d.id).sort()).toEqual(expected.map((i) => ids[i]).sort());
@@ -105,6 +108,9 @@ describe("projectDocuments against local Postgres", () => {
       await check(admin, { q: "north" }, [0, 2]);
       await check(admin, { type: "plan", status: "draft" }, [0, 4]);
       await check(admin, { type: "plan", revision: "B", from: "2026-02-01" }, [1]);
+      await check(orgAdmin, {}, [0, 1, 2, 3, 4]);
+      await check(orgAdmin, { segment: "mep" }, [5, 6, 7]);
+      expect(await projectDocuments({ ...orgAdmin, organizationId: randomUUID() }, slug, {})).toBeNull();
       await check(visitor, {}, [5, 6, 7]);
       await check(visitor, { segment: "mep", type: "plan", q: "north" }, [5]);
       await check(visitor, { segment: "architecture", status: "draft" }, [5, 7]);
@@ -115,11 +121,33 @@ describe("projectDocuments against local Postgres", () => {
       for (const denied of ["structure", "mep", "interior-design", "landscaping", "sales-plan"]) {
         await check(member, { segment: denied }, [0, 1, 2, 3, 4]);
       }
+      expect(await projectDocuments(noGrantMember, slug, {})).toBeNull();
       for (const denied of ["architecture", "structure", "interior-design", "landscaping", "sales-plan"]) {
         await check(visitor, { segment: denied }, [5, 6, 7]);
       }
+      expect(await projectDocuments(noGrantVisitor, slug, {})).toBeNull();
       expect((await projectDocuments(member, slug, {}))?.project.segments.map((s) => s.slug)).toEqual(["architecture"]);
       expect((await projectDocuments(visitor, slug, {}))?.project.segments.map((s) => s.slug)).toEqual(["mep"]);
+
+      const { error: memberWideGrantError } = await client.from("user_project_access").insert({
+        user_id: memberId, project_id: project.id, segment_id: null,
+      });
+      if (memberWideGrantError) throw memberWideGrantError;
+      expect((await projectDocuments(member, slug, {}))?.project.segments.map((s) => s.slug)).toEqual([
+        "architecture", "structure", "mep", "interior-design", "landscaping", "sales-plan",
+      ]);
+      await check(member, { segment: "sales-plan" }, [11]);
+      await client.from("user_project_access").delete().eq("user_id", memberId).is("segment_id", null);
+
+      const { error: visitorWideGrantError } = await client.from("access_code_grants").insert({
+        access_code_id: codeId, project_id: project.id, segment_id: null,
+      });
+      if (visitorWideGrantError) throw visitorWideGrantError;
+      expect((await projectDocuments(visitor, slug, {}))?.project.segments.map((s) => s.slug)).toEqual([
+        "architecture", "structure", "mep", "interior-design", "landscaping", "sales-plan",
+      ]);
+      await check(visitor, { segment: "sales-plan" }, [11]);
+      await client.from("access_code_grants").delete().eq("access_code_id", codeId).is("segment_id", null);
       const extraIds = Array.from({ length: 6 }, () => randomUUID());
       const { error: paginationError } = await client.from("documents").insert(extraIds.map((id, index) => ({
         id, project_id: project.id, segment_id: segmentBySlug.get("architecture")!,
@@ -143,6 +171,35 @@ describe("projectDocuments against local Postgres", () => {
       await client.from("access_codes").delete().eq("id", codeId);
       await client.from("documents").delete().eq("project_id", project.id);
       await client.from("projects").delete().eq("id", project.id);
+    }
+  }, 60_000);
+
+  it("hides archived projects and projects in archived organizations", async () => {
+    client = localClient();
+    const suffix = randomUUID();
+    const { data: org, error: orgError } = await client.from("organizations")
+      .insert({ name: `Archive fixture ${suffix}` }).select("id").single();
+    if (orgError) throw orgError;
+    const { data: project, error: projectError } = await client.from("projects")
+      .insert({ name: "Archive fixture", slug: `archive-fixture-${suffix}`, organization_id: org.id })
+      .select("id,slug").single();
+    if (projectError) throw projectError;
+    const admin = { kind: "user" as const, userId: randomUUID(), role: "super_admin" as const, organizationId: null };
+    try {
+      const { error: archivedOrgError } = await client.from("organizations")
+        .update({ archived_at: new Date().toISOString() }).eq("id", org.id);
+      if (archivedOrgError) throw archivedOrgError;
+      expect(await projectDocuments(admin, project.slug, {})).toBeNull();
+
+      const { error: restoreOrgError } = await client.from("organizations").update({ archived_at: null }).eq("id", org.id);
+      if (restoreOrgError) throw restoreOrgError;
+      const { error: archivedProjectError } = await client.from("projects")
+        .update({ archived_at: new Date().toISOString() }).eq("id", project.id);
+      if (archivedProjectError) throw archivedProjectError;
+      expect(await projectDocuments(admin, project.slug, {})).toBeNull();
+    } finally {
+      await client.from("projects").delete().eq("id", project.id);
+      await client.from("organizations").delete().eq("id", org.id);
     }
   }, 60_000);
 });

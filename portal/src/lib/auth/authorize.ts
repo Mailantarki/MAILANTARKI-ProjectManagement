@@ -64,6 +64,49 @@ const reader: Reader = {
   },
 };
 
+export type ProjectAccess = NonNullable<Awaited<ReturnType<Reader["project"]>>>;
+export type AccessSnapshot = {
+  projects: Map<string, ProjectAccess>;
+  member?: { userId: string; grants: { project_id: string; segment_id: string | null; can_download: boolean }[] };
+  visitor?: {
+    accessCodeId: string;
+    code: Awaited<ReturnType<Reader["code"]>>;
+    grants: { project_id: string; segment_id: string | null }[];
+  };
+};
+
+// In-memory Reader over data preloaded once per request, so authorizing many
+// (project, segment) pairs costs no extra round-trips. Same rules as `reader`.
+export function memoryReader(snapshot: AccessSnapshot): Reader {
+  return {
+    async project(id) { return snapshot.projects.get(id) ?? null; },
+    async member(userId, projectId, segmentId) {
+      if (snapshot.member?.userId !== userId) return [];
+      return snapshot.member.grants
+        .filter((g) => g.project_id === projectId && (g.segment_id === null || g.segment_id === segmentId))
+        .map((g) => ({ can_download: g.can_download }));
+    },
+    async code(id) { return snapshot.visitor?.accessCodeId === id ? snapshot.visitor.code : null; },
+    async grants(id, projectId, segmentId) {
+      if (snapshot.visitor?.accessCodeId !== id) return false;
+      return snapshot.visitor.grants.some((g) => g.project_id === projectId && (g.segment_id === null || g.segment_id === segmentId));
+    },
+  };
+}
+
+type LoadedProject = {
+  id: string; organization_id: string; archived_at: string | null;
+  organizations: { archived_at: string | null } | { archived_at: string | null }[] | null;
+};
+
+/** Authorizes an admin action against a project row the page already loaded: no extra query. */
+export function authorizeLoadedProject(p: Principal | null, project: LoadedProject, action: "admin_manage" | "admin_upload") {
+  const organizations = Array.isArray(project.organizations) ? project.organizations[0] ?? null : project.organizations;
+  const reader = memoryReader({ projects: new Map([[project.id,
+    { organization_id: project.organization_id, archived_at: project.archived_at, organizations }]]) });
+  return authorizeWithReader(p, { projectId: project.id, segmentId: "00000000-0000-0000-0000-000000000000" }, action, reader);
+}
+
 export async function authorize(p: Principal | null, target: Target, action: Action): Promise<boolean> {
   return authorizeWithReader(p, target, action, reader);
 }

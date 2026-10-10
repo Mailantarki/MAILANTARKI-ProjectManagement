@@ -3,39 +3,36 @@ import { redirect } from "next/navigation";
 import { getUserClient } from "@/lib/supabase/server";
 import { getPrincipal } from "@/lib/auth/principal";
 import { authorizeAdminOrganization, isAdminPrincipal } from "@/lib/auth/authorize";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { isStoragePath, signStorageUrls } from "@/lib/storage/signed-urls";
 import { AdminForm } from "../admin-form";
 import { saveProject, setProjectArchived } from "../manage-actions";
 import { CoverImageField } from "./cover-image-field";
+import { NameSlugFields } from "./name-slug-fields";
 import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 export default async function AdminProjectsPage() {
-  const principal = await getPrincipal();
-  if (!isAdminPrincipal(principal)) redirect("/login");
   const user = await getUserClient();
-  const [{ data: projects, error }, { data: organizations }] = await Promise.all([
+  // Queries run under RLS, so they start while the session is verified; nothing renders unless the viewer is an admin.
+  const [principal, { data: projects, error }, { data: organizations }] = await Promise.all([
+    getPrincipal(),
     user.from("projects").select("id,organization_id,name,slug,location,description,cover_image_url,is_public,archived_at")
       .order("name"),
     user.from("organizations").select("id,name,archived_at").order("name"),
   ]);
+  if (!isAdminPrincipal(principal)) redirect("/login");
   if (error) throw new Error("Could not load projects");
   const available = (organizations ?? []).filter((org) => !org.archived_at && authorizeAdminOrganization(principal, org.id));
-  const admin = getAdminClient();
-  const previews = new Map(await Promise.all((projects ?? []).map(async (project) => {
-    if (!project.cover_image_url || /^https?:\/\//.test(project.cover_image_url)) {
-      return [project.id, project.cover_image_url] as const;
-    }
-    const { data } = await admin.storage.from("project-covers").createSignedUrl(project.cover_image_url, 3600);
-    return [project.id, data?.signedUrl ?? null] as const;
-  })));
+  const signed = await signStorageUrls("project-covers",
+    (projects ?? []).map((project) => project.cover_image_url).filter(isStoragePath));
+  const previews = new Map((projects ?? []).map((project) => [project.id,
+    isStoragePath(project.cover_image_url) ? signed.get(project.cover_image_url) ?? null : project.cover_image_url] as const));
   return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><p className="eyebrow">Administration</p><h1>Projects</h1>
     {!!available.length && <Card className="new-project"><h2>New project</h2>
       <AdminForm action={saveProject} label="Create project">
         <label className="field">Organization<select name="organizationId">{available.map((org) =>
           <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>
-        <label className="field">Name<input name="name" required maxLength={160} /></label>
-        <label className="field">Slug<input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxLength={100} /></label>
+        <NameSlugFields />
         <label className="field">Location<input name="location" maxLength={160} /></label>
         <details className="new-project-options"><summary>Additional details</summary>
         <label className="field">Description<textarea name="description" maxLength={2000} /></label>
@@ -51,7 +48,7 @@ export default async function AdminProjectsPage() {
           <div className="card-actions">
             <Link href={`/admin/projects/${project.slug}/documents`}>Manage documents</Link>
             <Link href={`/admin/projects/${project.slug}/documents/new`}>Upload PDFs</Link>
-            <AdminForm action={setProjectArchived} label="Archive" confirmMessage={`Archive ${project.name}?`}>
+            <AdminForm action={setProjectArchived} label="Archive" danger confirmMessage={`Archive ${project.name}?`}>
               <input type="hidden" name="id" value={project.id} /><input type="hidden" name="archived" value="true" />
             </AdminForm>
           </div>
@@ -59,8 +56,7 @@ export default async function AdminProjectsPage() {
           <AdminForm action={saveProject} label="Save changes">
             <input type="hidden" name="id" value={project.id} />
             <input type="hidden" name="organizationId" value={project.organization_id} />
-            <label className="field">Name<input name="name" defaultValue={project.name} required maxLength={160} /></label>
-            <label className="field">Slug<input name="slug" defaultValue={project.slug} required pattern="[a-z0-9]+(-[a-z0-9]+)*" /></label>
+            <NameSlugFields defaultName={project.name} defaultSlug={project.slug} />
             <label className="field">Location<input name="location" defaultValue={project.location ?? ""} /></label>
             <label className="field">Description<textarea name="description" defaultValue={project.description ?? ""} /></label>
             <CoverImageField currentPreviewUrl={previews.get(project.id)} projectId={project.id} />

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { changeInitialPassword } from "./actions";
+import { PasswordFields } from "@/components/ui/password-fields";
 
 export function PasswordForm() {
   const [busy, setBusy] = useState(false);
@@ -14,9 +15,8 @@ export function PasswordForm() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not change password"); }
     finally { setBusy(false); }
   }}>
-    <label className="field">New password<input type="password" name="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
-    <label className="field">Confirm password<input type="password" name="confirm" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+    {error && <p role="alert" className="form-alert">{error}</p>}
+    <PasswordFields />
     <button className="button" disabled={busy}>{busy ? "Saving..." : "Save password"}</button>
-    {error && <p role="alert" className="error">{error}</p>}
   </form>;
 }

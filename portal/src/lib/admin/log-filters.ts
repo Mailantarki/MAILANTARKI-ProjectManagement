@@ -5,6 +5,8 @@ const schema = z.object({
   codeId: z.uuid().optional(),
   projectId: z.uuid().optional(),
   documentId: z.uuid().optional(),
+  // Document title or number. Restricted characters: the value is placed inside a PostgREST or() filter.
+  q: z.string().trim().regex(/^[\p{L}\p{N} ._-]{1,80}$/u).optional(),
   action: z.enum(["login", "code_redeem", "view", "download"]).optional(),
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
@@ -29,6 +31,7 @@ export function parseLogFilters(search: Record<string, string | string[] | undef
 
 type Filterable = {
   eq(column: string, value: string): Filterable;
+  or(filters: string): Filterable;
   gte(column: string, value: string): Filterable;
   lt(column: string, value: string): Filterable;
 };
@@ -39,6 +42,7 @@ export function applyLogFilters<T>(query: T, filters: LogFilters): T {
   if (filters.codeId) filtered = filtered.eq("access_code_id", filters.codeId);
   if (filters.projectId) filtered = filtered.eq("project_id", filters.projectId);
   if (filters.documentId) filtered = filtered.eq("document_id", filters.documentId);
+  if (filters.q) filtered = filtered.or(`document_title.ilike.*${filters.q}*,doc_number.ilike.*${filters.q}*`);
   if (filters.action) filtered = filtered.eq("action", filters.action);
   if (filters.from) filtered = filtered.gte("created_at", `${filters.from}T00:00:00.000Z`);
   if (filters.to) filtered = filtered.lt("created_at", new Date(Date.parse(`${filters.to}T00:00:00.000Z`) + 86400000).toISOString());

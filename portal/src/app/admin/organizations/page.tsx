@@ -1,5 +1,5 @@
 import { getUserClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { isStoragePath, signStorageUrls } from "@/lib/storage/signed-urls";
 import { LogoField } from "./logo-field";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -10,17 +10,18 @@ import { AdminForm } from "../admin-form";
 import { saveOrganization, setOrganizationArchived } from "../manage-actions";
 
 export default async function OrganizationsPage() {
-  const principal = await getPrincipal();
-  if (!isAdminPrincipal(principal)) redirect("/login");
   const user = await getUserClient();
-  const { data: organizations, error } = await user.from("organizations")
-    .select("id,name,logo_url,archived_at").order("name");
+  // Queries run under RLS, so they start while the session is verified; nothing renders unless the viewer is an admin.
+  const [principal, { data: organizations, error }] = await Promise.all([
+    getPrincipal(),
+    user.from("organizations").select("id,name,logo_url,archived_at").order("name"),
+  ]);
+  if (!isAdminPrincipal(principal)) redirect("/login");
   if (error) throw new Error("Could not load organizations");
-  const previews = new Map(await Promise.all((organizations ?? []).map(async (org) => {
-    if (!org.logo_url || /^https?:\/\//.test(org.logo_url)) return [org.id, org.logo_url] as const;
-    const { data } = await getAdminClient().storage.from("project-covers").createSignedUrl(org.logo_url, 3600);
-    return [org.id, data?.signedUrl ?? null] as const;
-  })));
+  const signed = await signStorageUrls("project-covers",
+    (organizations ?? []).map((org) => org.logo_url).filter(isStoragePath));
+  const previews = new Map((organizations ?? []).map((org) => [org.id,
+    isStoragePath(org.logo_url) ? signed.get(org.logo_url) ?? null : org.logo_url] as const));
   return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><h1>Organizations</h1>
     {authorizeSuperAdmin(principal) && <section className="admin-section"><h2>New organization</h2>
       <AdminForm action={saveOrganization} label="Create organization">
@@ -35,7 +36,7 @@ export default async function OrganizationsPage() {
           <label className="field">Name<input name="name" defaultValue={org.name} required maxLength={120} /></label>
           <LogoField key={org.logo_url ?? "empty"} previewUrl={previews.get(org.id)} />
         </AdminForm>
-        <AdminForm action={setOrganizationArchived} label="Archive" confirmMessage={`Archive ${org.name} and hide its projects?`}>
+        <AdminForm action={setOrganizationArchived} label="Archive" danger confirmMessage={`Archive ${org.name} and hide its projects?`}>
           <input type="hidden" name="id" value={org.id} /><input type="hidden" name="archived" value="true" />
         </AdminForm>
       </div>)}

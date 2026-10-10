@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:cloud": "node scripts/dev-cloud.mjs",
+    "start:cloud": "node scripts/start-cloud.mjs",
     "build": "next build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

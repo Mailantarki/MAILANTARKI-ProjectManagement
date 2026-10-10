@@ -82,3 +82,14 @@ export async function setDocumentArchived(form: FormData) {
   if (error || !data) throw new Error("Could not change document archive status");
   refreshDocuments();
 }
+
+/** "Make current": the chosen revision becomes the one the portal shows for its number. */
+export async function makeDocumentCurrent(form: FormData) {
+  const id = uuid.parse(form.get("id"));
+  const { user, document } = await managedDocument(id);
+  if (document.archived_at) throw new Error("Restore the revision before making it current");
+  // The RPC checks the project admin again with the user's own session (RLS rules stay in the database).
+  const { error } = await user.rpc("make_document_current", { p_document_id: id });
+  if (error) throw new Error("Could not make this revision current");
+  refreshDocuments();
+}

@@ -21,7 +21,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const admin = getAdminClient();
   const { data: document, error } = await admin.from("documents")
-    .select("id,project_id,segment_id,file_path,upload_status,archived_at,doc_number,projects(organization_id)")
+    .select("id,project_id,segment_id,file_path,upload_status,archived_at,doc_number,revision,is_current,projects(organization_id)")
     .eq("id", params.data).maybeSingle();
   if (error) return Response.json({ error: "Document unavailable" }, { status: 503, headers });
   if (!document || document.upload_status !== "ready" || document.archived_at) return missing();
@@ -41,7 +41,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     });
   } catch { console.error("Could not record document access"); }
 
-  const filename = `${document.doc_number.replace(/[^a-zA-Z0-9._-]/g, "_")}.pdf`;
+  // A superseded revision stays downloadable, but its file name says so (SPEC-ui-ux decision 9).
+  const superseded = document.is_current === false ? `_Rev-${document.revision}_SUPERSEDED` : "";
+  const filename = `${document.doc_number}${superseded}`.replace(/[^a-zA-Z0-9._-]/g, "_") + ".pdf";
   const { data: signed, error: signError } = await admin.storage.from("documents")
     .createSignedUrl(document.file_path, 300, downloading ? { download: filename } : undefined);
   if (signError || !signed) return Response.json({ error: "Document unavailable" }, { status: 503, headers });

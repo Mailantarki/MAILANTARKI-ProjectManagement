@@ -49,7 +49,6 @@ test.describe.serial("admin organizations, projects and users", () => {
     await expect(page.getByText(fixture.organizationName).first()).toBeVisible();
     const { data: org } = await admin.from("organizations").select("id").eq("name", fixture.organizationName).single();
     fixture.organizationId = org!.id;
-    page.on("dialog", (prompt) => prompt.accept());
     const orgRow = page.locator(".admin-record", { hasText: fixture.organizationName });
     await orgRow.getByLabel("Logo file").setInputFiles({ name: "logo.png", mimeType: "image/png",
       buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64") });
@@ -65,6 +64,7 @@ test.describe.serial("admin organizations, projects and users", () => {
     expect(logo?.size).toBeGreaterThan(0);
     await expect(page.locator(".back-link")).toHaveAttribute("href", "/admin");
     await orgRow.getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("dialog", { name: "Archive" }).getByRole("button", { name: "Archive" }).click();
     await expect(orgRow.getByRole("button", { name: "Restore" })).toBeVisible();
     await orgRow.getByRole("button", { name: "Restore" }).click();
     await expect(orgRow.getByRole("button", { name: "Archive" })).toBeVisible();
@@ -75,7 +75,7 @@ test.describe.serial("admin organizations, projects and users", () => {
     const newProject = page.getByRole("heading", { name: "New project" }).locator("..");
     await newProject.getByLabel("Organization").selectOption({ label: "MAILANTARKI.COM" });
     await newProject.getByLabel("Name").fill(fixture.projectName);
-    await newProject.getByLabel("Slug").fill(fixture.projectSlug);
+    await newProject.getByLabel("Web address").fill(fixture.projectSlug);
     await newProject.locator("summary").click();
     await newProject.locator('input[name="coverImage"]').setInputFiles({
       name: "cover.png", mimeType: "image/png",
@@ -127,7 +127,8 @@ test.describe.serial("admin organizations, projects and users", () => {
     const temporaryPassword = (await secret.locator("code").textContent())!.trim();
     expect(temporaryPassword.length).toBeGreaterThan(20);
     await secret.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(secret.locator("code")).toHaveText("");
+    // The closed dialog leaves the accessibility tree, so check its (cleared) code element directly.
+    await expect(page.locator('dialog[aria-label="Temporary password"] code')).toHaveText("");
     await create.getByRole("button", { name: "Close", exact: true }).click();
     const { data: profiles } = await admin.from("profiles").select("id").eq("full_name", `Member ${suffix}`);
     fixture.memberId = profiles![0].id;
@@ -135,8 +136,10 @@ test.describe.serial("admin organizations, projects and users", () => {
     const memberRow = page.locator(".users-table tbody tr", { hasText: fixture.memberEmail });
     await memberRow.getByRole("button", { name: "Manage", exact: true }).click();
     const memberPanel = page.getByRole("dialog", { name: `Member ${suffix}`, exact: true });
-    await memberPanel.getByLabel("Project", { exact: true }).selectOption({ label: fixture.projectName });
-    await memberPanel.getByLabel("Discipline").selectOption({ label: "Architecture" });
+    // A <select> inside its <label> has the selected option in its accessible name ("Project Daige …"),
+    // so an exact label match never finds it.
+    await memberPanel.locator('select[name="projectId"]').selectOption({ label: fixture.projectName });
+    await memberPanel.locator('select[name="segmentId"]').selectOption({ label: "Architecture" });
     await memberPanel.getByRole("button", { name: "Assign access" }).click();
     await expect(memberPanel.locator(".user-grant")).toContainText("Architecture");
     await memberPanel.getByRole("button", { name: "Close", exact: true }).click();
@@ -171,7 +174,7 @@ test.describe.serial("admin organizations, projects and users", () => {
       await suspension.getByRole("button", { name: "Cancel" }).click();
       await expect(memberPanel.getByRole("button", { name: "Suspend user", exact: true })).toBeVisible();
       await memberPanel.getByRole("button", { name: "Suspend user", exact: true }).click();
-      await suspension.getByRole("button", { name: "Confirm" }).click();
+      await suspension.getByRole("button", { name: "Suspend user" }).click();
       await expect(memberPanel.getByRole("button", { name: "Reactivate user", exact: true })).toBeVisible();
       await member.reload();
       await expect(member).toHaveURL(/\/$/);
@@ -180,7 +183,7 @@ test.describe.serial("admin organizations, projects and users", () => {
       });
       expect(deniedLogin.status()).toBe(401);
       await memberPanel.getByRole("button", { name: "Reactivate user", exact: true }).click();
-      await page.getByRole("dialog", { name: "Reactivate user", exact: true }).getByRole("button", { name: "Confirm" }).click();
+      await page.getByRole("dialog", { name: "Reactivate user", exact: true }).getByRole("button", { name: "Reactivate user" }).click();
       await expect(memberPanel.getByRole("button", { name: "Suspend user", exact: true })).toBeVisible();
       await memberPanel.getByRole("button", { name: "Close", exact: true }).click();
       await member.goto("/login");
@@ -190,6 +193,8 @@ test.describe.serial("admin organizations, projects and users", () => {
       await expect(member).toHaveURL(/\/projects$/);
       await page.goto("/admin/projects");
       await page.locator(".admin-record", { hasText: fixture.projectName }).getByRole("button", { name: "Archive" }).click();
+      await page.getByRole("dialog", { name: "Archive" }).getByRole("button", { name: "Archive" }).click();
+      await expect(page.locator(".admin-record", { hasText: fixture.projectName }).getByRole("button", { name: "Restore" })).toBeVisible();
       await member.reload();
       await expect(member.getByRole("link", { name: new RegExp(fixture.projectName) })).toHaveCount(0);
       await page.locator(".admin-record", { hasText: fixture.projectName }).getByRole("button", { name: "Restore" }).click();
@@ -197,14 +202,14 @@ test.describe.serial("admin organizations, projects and users", () => {
       await member.reload();
       await expect(member.getByRole("link", { name: new RegExp(fixture.projectName) })).toBeVisible();
       await page.goto("/admin/logs");
-      await expect(page.getByRole("heading", { name: "Access logs" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Activity log" })).toBeVisible();
       const csv = await page.request.get("/admin/logs/export?action=login");
       expect(csv.status()).toBe(200);
       expect(csv.headers()["content-type"]).toContain("text/csv");
       expect(await csv.text()).toContain('"login"');
-      await page.goto(`/admin/logs?userId=${fixture.memberId}`);
-      await expect(page.getByRole("cell", { name: "user suspended", exact: true })).toBeVisible();
-      await expect(page.getByRole("cell", { name: "password changed", exact: true })).toBeVisible();
+      await page.goto(`/admin/logs?tab=admin&userId=${fixture.memberId}`);
+      await expect(page.getByRole("cell", { name: "Suspended user", exact: true })).toBeVisible();
+      await expect(page.getByRole("cell", { name: "Changed password", exact: true })).toBeVisible();
     } finally { await memberContext.close(); }
   });
 });

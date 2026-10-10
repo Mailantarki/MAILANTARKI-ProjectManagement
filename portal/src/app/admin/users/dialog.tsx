@@ -1,17 +1,22 @@
 "use client";
 import { useId, useRef, type ReactNode } from "react";
 import { Plus, Settings2, X } from "lucide-react";
-export function UserDialog({ title, label, drawer = false, children }: {
-  title: string; label: string; drawer?: boolean; children: ReactNode;
+
+/**
+ * Button + modal. `drawer` slides in from the right (edit panels); `primary` keeps the main-action
+ * button style for "New …" panels that also open as a drawer.
+ */
+export function UserDialog({ title, label, drawer = false, primary = !drawer, children }: {
+  title: string; label: string; drawer?: boolean; primary?: boolean; children: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
   return <>
-    <button className={`button${drawer ? " secondary" : ""}`} onClick={() => dialog.current?.showModal()}>
-      {drawer ? <Settings2 size={16} aria-hidden /> : <Plus size={16} aria-hidden />}{label}
+    <button type="button" className={`button${primary ? "" : " secondary"}`} onClick={() => dialog.current?.showModal()}>
+      {primary ? <Plus size={16} aria-hidden /> : <Settings2 size={16} aria-hidden />}{label}
     </button>
     <dialog className={`user-dialog${drawer ? " user-drawer" : ""}`} ref={dialog} aria-labelledby={id}>
-      <header><h2 id={id}>{title}</h2><button className="user-icon" title="Close" aria-label="Close" onClick={() => dialog.current?.close()}><X size={20} /></button></header>
+      <header><h2 id={id}>{title}</h2><button type="button" className="user-icon" title="Close" aria-label="Close" onClick={() => dialog.current?.close()}><X size={20} /></button></header>
       {children}
     </dialog>
   </>;

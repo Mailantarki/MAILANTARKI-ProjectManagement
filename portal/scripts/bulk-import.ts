@@ -20,6 +20,15 @@ export function validatePdf(buffer: Buffer): string | null {
   return null;
 }
 
+function withoutEnvFileArg(argv: string[]) {
+  const filtered: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--env-file") { i++; continue; }
+    filtered.push(argv[i]);
+  }
+  return filtered;
+}
+
 function parseArgs(argv: string[]) {
   const value: Record<string, string> = {};
   for (let i = 0; i < argv.length; i += 2) {
@@ -31,8 +40,9 @@ function parseArgs(argv: string[]) {
 }
 
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const { admin, cliEnv } = await import("./cli-common");
+  const options = parseArgs(withoutEnvFileArg(process.argv.slice(2)));
+  const { admin, cliEnv, confirmTargetHost } = await import("./cli-common");
+  await confirmTargetHost();
   const env = z.object({ NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1) }).parse(process.env);
   const directory = resolve(options.directory);
   const names = (await readdir(directory)).filter((name) => name.toLowerCase().endsWith(".pdf")).sort();
