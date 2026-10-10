@@ -8,7 +8,7 @@ import { parseFileName } from "@/lib/documents/filename";
 import { compareRevisions, nextRevision } from "@/lib/documents/revision";
 import { BLOCKING, describeClassification, type Classification } from "@/lib/documents/classify";
 import { getBrowserClient } from "@/lib/supabase/client";
-import { cancelUpload, finalizeUpload, prepareUpload, reviewUploads } from "./actions";
+import { cancelUpload, finalizeUpload, notifyPublished, prepareUpload, publishAudienceCount, reviewUploads } from "./actions";
 
 type Segment = { id: string; name: string; slug: string };
 type DocType = "plan" | "section" | "elevation" | "detail" | "specification" | "schedule" | "report" | "other";
@@ -48,6 +48,10 @@ export function UploadForm({ projectId, segments, template, doneHref }: {
   const [review, setReview] = useState<Record<string, Classification>>({});
   const [reviewError, setReviewError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notify, setNotify] = useState(true);
+  const [audience, setAudience] = useState(0);
+  const [emailResult, setEmailResult] = useState("");
+  const published = useRef<string[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const pendingTickets = useRef(new Map<string, string>());
   const update = (id: string, patch: Partial<Row>) => setRows((old) => old.map((row) => row.id === id ? { ...row, ...patch } : row));
@@ -96,12 +100,24 @@ export function UploadForm({ projectId, segments, template, doneHref }: {
       if (error) throw new Error("Upload failed; retry to replace the unfinished attempt");
       update(row.id, { phase: "Validating" });
       await finalizeUpload(ticket.docId);
+      published.current.push(ticket.docId);
       pendingTickets.current.delete(row.id);
       update(row.id, { phase: "Complete" });
     } catch (error) {
       update(row.id, { phase: "Failed", error: error instanceof Error ? error.message : "Upload failed" });
     }
   }
+
+  // Who the publish email would reach: people with access to the disciplines being published.
+  const publishSegments = [...new Set(pending.map((row) => row.segmentId))].sort().join(",");
+  useEffect(() => {
+    if (!publishSegments) return;
+    let cancelled = false;
+    publishAudienceCount({ projectId, segmentIds: publishSegments.split(",") })
+      .then((n) => { if (!cancelled) setAudience(n); }).catch(() => { if (!cancelled) setAudience(0); });
+    return () => { cancelled = true; };
+  }, [publishSegments, projectId]);
+  const segmentNames = publishSegments.split(",").map((id) => segments.find((s) => s.id === id)?.name).filter(Boolean).join(", ");
 
   const blocked = (row: Row) => !row.title.trim() || !row.revision.trim() || !review[row.id] || BLOCKING.includes(review[row.id].kind);
   const publishable = reviewed ? pending.filter((row) => !blocked(row)) : [];
@@ -110,9 +126,19 @@ export function UploadForm({ projectId, segments, template, doneHref }: {
     setBusy(true);
     const queue = [...publishable];
     let next = 0;
+    published.current = [];
+    setEmailResult("");
     await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
       while (next < queue.length) await upload(queue[next++]);
     }));
+    // One email for the whole batch, after every file is in.
+    if (notify && audience > 0 && published.current.length) {
+      try {
+        const result = await notifyPublished({ projectId, documentIds: published.current });
+        setEmailResult(!result.configured ? "Email is not set up on this server, so nobody was emailed."
+          : `Emailed ${result.sent} ${result.sent === 1 ? "person" : "people"}.`);
+      } catch { setEmailResult("The files are published, but the email could not be sent."); }
+    }
     setBusy(false);
   }
 
@@ -193,10 +219,12 @@ export function UploadForm({ projectId, segments, template, doneHref }: {
       })}</div>
       {!pending.length && !busy ? <div className="upload-done" aria-live="polite">
         <strong>{done} {done === 1 ? "file" : "files"} published.</strong>
-        <span>The portal already shows the current revisions.</span>
+        <span>The portal already shows the current revisions.{emailResult && ` ${emailResult}`}</span>
         <Link className="button" href={doneHref}>Done</Link>
         <button className="button secondary" type="button" onClick={() => { setRows([]); setReview({}); }}>Upload more</button>
       </div> : <div className="upload-actions">
+        {audience > 0 && <label className="upload-notify"><input type="checkbox" checked={notify} disabled={busy} onChange={(e) => setNotify(e.target.checked)} />
+          Email {audience} {audience === 1 ? "person" : "people"} with access to {segmentNames}</label>}
         <button className="button" type="button" disabled={busy || !publishable.length} onClick={publish}>
           {busy ? `Publishing ${done} of ${rows.length}…` : `Publish ${publishable.length} ${publishable.length === 1 ? "file" : "files"}`}</button>
         {!busy && pending.length > publishable.length && reviewed && <span className="results-count">

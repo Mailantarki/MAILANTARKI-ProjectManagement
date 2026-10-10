@@ -1,6 +1,5 @@
 import { getPrincipal } from "@/lib/auth/principal";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { authorizeAdminOrganization, isAdminPrincipal } from "@/lib/auth/authorize";
@@ -12,12 +11,14 @@ import { CodeStatus } from "./code-status";
 import { formatDateTime } from "@/lib/format";
 import { ExtendCodeButton } from "./extend-code";
 import { UserDialog } from "../users/dialog";
+import { PeopleTabs } from "../people-tabs";
 
 // Request time for the expiry check (kept outside the component render).
 const requestTime = () => Date.now();
 
-export default async function AdminCodesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const page = z.coerce.number().int().min(1).max(100000).catch(1).parse((await searchParams).page);
+export default async function AdminCodesPage({ searchParams }: { searchParams: Promise<{ page?: string; new?: string }> }) {
+  const search = await searchParams;
+  const page = z.coerce.number().int().min(1).max(100000).catch(1).parse(search.page);
   const user = await getUserClient();
   // Queries run under RLS, so they start while the session is verified; nothing renders unless the viewer is an admin.
   const [principal, { data: codes, error, count }, { data: organizations }, { data: projects },
@@ -35,12 +36,13 @@ export default async function AdminCodesPage({ searchParams }: { searchParams: P
   const availableOrganizations = (organizations ?? []).filter((org) => !org.archived_at && authorizeAdminOrganization(principal, org.id));
   const availableProjects = (projects ?? []).filter((project) => !project.archived_at);
   const now = requestTime();
-  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link>
-    <div className="admin-page-title"><h1>Access codes</h1>
-      {!!availableOrganizations.length && <UserDialog title="New access code" label="New code" drawer primary>
+  return <main className="main portal">
+    <div className="admin-page-title"><h1>People &amp; access</h1>
+      {!!availableOrganizations.length && <UserDialog title="New access code" label="New code" drawer primary defaultOpen={search.new === "1"}>
         <CreateCodeForm organizations={availableOrganizations} projects={availableProjects} segments={segments ?? []} />
       </UserDialog>}</div>
-    <section className="admin-section">
+    <PeopleTabs active="guests" />
+    <section className="admin-section"><h2 className="sr-only">Access codes</h2>
       <div className="table-scroll"><table className="document-table responsive-table codes-table"><thead><tr>
         <th>Label</th><th>Organization</th><th>Access</th><th>Uses</th><th>Expires</th><th>Status</th><th><span className="sr-only">Actions</span></th>
       </tr></thead><tbody>{(codes ?? []).map((code) => {

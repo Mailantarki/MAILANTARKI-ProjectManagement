@@ -93,3 +93,53 @@ export async function makeDocumentCurrent(form: FormData) {
   if (error) throw new Error("Could not make this revision current");
   refreshDocuments();
 }
+
+const bulkInput = z.object({
+  ids: z.array(uuid).min(1).max(500),
+  patch: z.object({
+    status: z.enum(["draft", "for_review", "issued_for_construction", "as_built"]).optional(),
+    is_featured: z.boolean().optional(),
+    archived: z.boolean().optional(),
+  }).strict().refine((patch) => Object.keys(patch).length > 0, "Nothing to change"),
+});
+export type BulkPrevious = { id: string; status: string; is_featured: boolean; archived: boolean; was_current: boolean };
+
+/** Bulk edit (status, featured, archived). Every document must be one the admin manages, or nothing changes. */
+export async function bulkUpdateDocuments(input: unknown): Promise<BulkPrevious[]> {
+  const { ids, patch } = bulkInput.parse(input);
+  const principal = await getPrincipal();
+  const user = await getUserClient();
+  const { data: rows, error: loadError } = await user.from("documents").select("id,project_id,segment_id").in("id", ids);
+  if (loadError || !rows || rows.length !== new Set(ids).size) throw new Error("Some documents were not found");
+  const targets = new Map(rows.map((row) => [`${row.project_id}:${row.segment_id}`, { projectId: row.project_id, segmentId: row.segment_id }]));
+  const allowed = await Promise.all([...targets.values()].map((target) => authorize(principal, target, "admin_manage")));
+  if (allowed.includes(false)) throw new Error("Not authorized");
+  const { data, error } = await user.rpc("bulk_update_documents", { p_ids: ids, p_patch: patch });
+  if (error) throw new Error(error.code === "42501" ? "Some documents cannot be changed" : "Could not update the documents");
+  refreshDocuments();
+  return (data ?? []) as BulkPrevious[];
+}
+
+/** Undo of a bulk edit: puts back each document's previous values (and its current revision). */
+export async function undoBulkUpdate(input: unknown) {
+  const previous = z.array(z.object({
+    id: uuid, status: z.enum(["draft", "for_review", "issued_for_construction", "as_built"]),
+    is_featured: z.boolean(), archived: z.boolean(), was_current: z.boolean(),
+  })).min(1).max(500).parse(input);
+  const groups = new Map<string, typeof previous>();
+  for (const row of previous) {
+    const key = JSON.stringify([row.status, row.is_featured, row.archived]);
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  for (const rows of groups.values()) {
+    const { status, is_featured, archived } = rows[0];
+    await bulkUpdateDocuments({ ids: rows.map((row) => row.id), patch: { status, is_featured, archived } });
+  }
+  // A restored revision goes back to the history; make the ones that were current, current again.
+  const user = await getUserClient();
+  for (const row of previous.filter((r) => r.was_current && !r.archived)) {
+    const { data } = await user.from("documents").select("is_current").eq("id", row.id).maybeSingle();
+    if (data && !data.is_current) await user.rpc("make_document_current", { p_document_id: row.id });
+  }
+  refreshDocuments();
+}

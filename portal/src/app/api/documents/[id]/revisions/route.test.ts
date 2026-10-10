@@ -11,7 +11,8 @@ vi.mock("../../../../../lib/supabase/admin", () => ({ getAdminClient: () => ({
       eq: (column: string, value: string) => { state.filters.push(`${column}=${value}`); return chain; },
       is: () => chain,
       maybeSingle: async () => ({ data: state.found ? { project_id: "p", segment_id: "s", doc_number: "A-101",
-        upload_status: "ready", archived_at: null } : null, error: null }),
+        upload_status: "ready", archived_at: null, title: "Plan", doc_type: "plan", status: "draft", revision: "C", is_current: true,
+        issue_date: null, file_size: 10, description: null, segments: { name: "Architecture" }, projects: { name: "P", slug: "p" } } : null, error: null }),
       limit: async () => ({ data: fields.includes("file_path") ? null : state.rows, error: null }),
     };
     return chain;
@@ -42,6 +43,7 @@ describe("document revisions", () => {
     const body = await response.json();
     expect(body.revisions.map((r: { id: string }) => r.id)).toEqual(["c", "b", "a"]);
     expect(JSON.stringify(body)).not.toContain("file_path");
+    expect(body.document.link).toBe("/projects/p/documents/A-101");
     expect(state.filters).toEqual(expect.arrayContaining(["project_id=p", "segment_id=s", "doc_number=A-101", "upload_status=ready"]));
   });
 });

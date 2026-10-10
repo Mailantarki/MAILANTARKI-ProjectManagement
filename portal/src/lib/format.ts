@@ -42,3 +42,17 @@ export const adminEventLabels: Record<string, string> = {
 
 export const label = (map: Record<string, string>, value: string | null | undefined) =>
   value ? map[value] ?? value.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase()) : "-";
+
+/** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then the date. */
+export function formatRelative(value: string, now = Date.now()) {
+  const minutes = Math.round((now - Date.parse(value)) / 60000);
+  if (Number.isNaN(minutes)) return "-";
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return formatDate(value);
+}

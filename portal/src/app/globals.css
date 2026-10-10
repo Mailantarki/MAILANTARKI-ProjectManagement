@@ -24,7 +24,7 @@ p { color: #5e6c65; }
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,300px),1fr)); gap: 12px; margin-top: 28px; }
 .project-item { display: block; background: white; border: 1px solid #d9dedb; padding: 20px; border-radius: var(--radius-control); color: inherit; text-decoration: none; }
 .project-item:hover { border-color: var(--accent); }
-.project-item h2 { font-size: 18px; margin: 0; }
+.project-item h2, .project-item h3 { font-size: 18px; margin: 0; }
 .project-item p { margin: 10px 0 24px; }
 .project-item span, .results-count { font-size: 13px; color: #55655e; }
 .segment-tabs { display: flex; gap: 24px; overflow-x: auto; border-bottom: 1px solid #ccd5cf; margin: 30px 0 18px; }
@@ -203,7 +203,7 @@ p { color: #5e6c65; }
   transform: translateY(-2px);
 }
 .project-card-body { display: flex; min-height: 136px; flex-direction: column; }
-.project-item h2 {
+.project-item h2, .project-item h3 {
   color: var(--portal-ink);
   font-size: 18px;
   font-weight: 650;

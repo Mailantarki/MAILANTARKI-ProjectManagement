@@ -92,8 +92,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.getByLabel("Email").fill(fixture.email);
     await page.getByLabel("Password").fill(fixture.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
-    await expect(page.getByRole("heading", { name: "Project library" })).toBeVisible();
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.screenshot({ path: "/tmp/mailantarki-unified-portal.png", fullPage: true });
     await page.goto("/admin/users");
     await expect(page).toHaveURL(/\/login$/);
@@ -119,8 +118,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.goto("/");
     await page.getByLabel("Enter access code").fill(fixture.code);
     await page.getByRole("button", { name: "Enter access code" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
-    await expect(page.getByRole("heading", { name: "Project library" })).toBeVisible();
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.goto("/admin/codes");
     await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/projects/${projectSlug}`);
@@ -146,7 +144,7 @@ test.describe.serial("private PDF viewer and segment isolation", () => {
     await page.getByLabel("Email").fill(fixture.email);
     await page.getByLabel("Password").fill(fixture.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("heading", { name: "Project library" })).toBeVisible();
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.goto("/projects/mauritius-golf-estate");
     await page.screenshot({ path: "/tmp/mailantarki-unified-project.png", fullPage: true });
     await page.getByRole("button", { name: "View" }).first().click();

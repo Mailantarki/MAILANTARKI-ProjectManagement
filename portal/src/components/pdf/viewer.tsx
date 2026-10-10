@@ -1,8 +1,8 @@
 "use client";
 import "./polyfills";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent, type TouchList as ReactTouchList } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { ChevronLeft, ChevronRight, Download, Maximize, Minimize, Minus, Plus, RotateCw, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Maximize, Minimize, Minus, Plus, RotateCw, X } from "lucide-react";
 import type { ViewerDocument } from "./launcher";
 import type { RevisionSummary } from "@/app/api/documents/[id]/revisions/route";
 import { formatDate } from "@/lib/format";
@@ -15,8 +15,13 @@ type Ticket = { url: string; expiresIn: number; allowDownload: boolean };
 type Fit = "width" | "page";
 const FOCUSABLE = "button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex='-1'])";
 
-export default function PdfViewer({ document: initial, onClose }: { document: ViewerDocument; onClose: () => void }) {
-  // The revision picker can switch the open document to another revision of the same number.
+export default function PdfViewer({ document: initial, onClose, siblings = [] }: {
+  document: ViewerDocument; onClose: () => void;
+  /** The drawings listed on the page, for previous/next drawing. */
+  siblings?: ViewerDocument[];
+}) {
+  // `base` is the listed drawing; the revision picker can switch `doc` to another revision of its number.
+  const [base, setBase] = useState(initial);
   const [doc, setDoc] = useState(initial);
   const [revisions, setRevisions] = useState<{ docNumber: string; list: RevisionSummary[] } | null>(null);
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -35,17 +40,26 @@ export default function PdfViewer({ document: initial, onClose }: { document: Vi
   const closeButton = useRef<HTMLButtonElement>(null);
   const retried = useRef(false);
   const titleId = `viewer-title-${initial.id}`;
+  const position = siblings.findIndex((s) => s.id === base.id);
+  const previousDrawing = position > 0 ? siblings[position - 1] : undefined;
+  const nextDrawing = position >= 0 && position < siblings.length - 1 ? siblings[position + 1] : undefined;
+  const openDrawing = useCallback((target: ViewerDocument | undefined) => {
+    if (!target) return;
+    retried.current = false;
+    setTicket(null); setPages(0); setPage(1); setProgress(0); setError(""); setRevisions(null); setZoom(1);
+    setBase(target); setDoc(target);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/documents/${initial.id}/revisions`, { cache: "no-store", signal: controller.signal })
+    fetch(`/api/documents/${base.id}/revisions`, { cache: "no-store", signal: controller.signal })
       .then((response) => response.ok ? response.json() : null)
       .then((body: { docNumber: string; revisions: RevisionSummary[] } | null) => {
         if (body) setRevisions({ docNumber: body.docNumber, list: body.revisions });
       })
       .catch(() => undefined); // the picker is optional; the document still opens
     return () => controller.abort();
-  }, [initial.id]);
+  }, [base.id]);
   const activeRevision = revisions?.list.find((r) => r.id === doc.id);
   const currentRevision = revisions?.list.find((r) => r.isCurrent);
   const superseded = activeRevision && !activeRevision.isCurrent;
@@ -126,12 +140,36 @@ export default function PdfViewer({ document: initial, onClose }: { document: Vi
       else if (event.key === "+" || event.key === "=") setZoom((z) => Math.min(3, z + .25));
       else if (event.key === "-") setZoom((z) => Math.max(.5, z - .25));
       else if (event.key === "f" || event.key === "F") toggleFullscreen();
+      else if ((event.key === "j" || event.key === "J") && nextDrawing) openDrawing(nextDrawing);
+      else if ((event.key === "k" || event.key === "K") && previousDrawing) openDrawing(previousDrawing);
       else return;
       event.preventDefault();
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [onClose, pages, toggleFullscreen]);
+  }, [onClose, pages, toggleFullscreen, nextDrawing, previousDrawing, openDrawing]);
+
+  // Touch: swipe sideways to change drawing (at fit zoom), pinch to zoom.
+  const touch = useRef<{ x: number; y: number; distance: number; zoom: number } | null>(null);
+  const spread = (list: ReactTouchList) => Math.hypot(list[0].clientX - list[1].clientX, list[0].clientY - list[1].clientY);
+  const touchStart = (event: ReactTouchEvent) => {
+    const t = event.touches;
+    touch.current = { x: t[0].clientX, y: t[0].clientY, distance: t.length === 2 ? spread(t) : 0, zoom };
+  };
+  const touchMove = (event: ReactTouchEvent) => {
+    const start = touch.current;
+    if (!start || event.touches.length !== 2 || !start.distance) return;
+    const next = Math.min(3, Math.max(.5, start.zoom * spread(event.touches) / start.distance));
+    setZoom(Math.round(next * 20) / 20);
+  };
+  const touchEnd = (event: ReactTouchEvent) => {
+    const start = touch.current;
+    touch.current = null;
+    if (!start || start.distance || zoom > 1 || event.changedTouches.length !== 1) return;
+    const dx = event.changedTouches[0].clientX - start.x, dy = event.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * .6) return;
+    openDrawing(dx < 0 ? nextDrawing : previousDrawing);
+  };
 
   const download = async () => {
     try {
@@ -170,11 +208,16 @@ export default function PdfViewer({ document: initial, onClose }: { document: Vi
           <button ref={closeButton} title="Close (Esc)" aria-label="Close" onClick={onClose}><X size={18} /></button>
         </div>
       </div>
+      {siblings.length > 1 && position >= 0 && <nav className="viewer-drawings" aria-label="Drawings in this list">
+        <button type="button" disabled={!previousDrawing} onClick={() => openDrawing(previousDrawing)} title="Previous drawing (K)"><ArrowLeft size={16} aria-hidden />Previous drawing</button>
+        <span aria-live="polite">{position + 1} of {siblings.length}</span>
+        <button type="button" disabled={!nextDrawing} onClick={() => openDrawing(nextDrawing)} title="Next drawing (J)">Next drawing<ArrowRight size={16} aria-hidden /></button>
+      </nav>}
       {superseded && <div className="viewer-superseded" role="status">
         <span>This revision was superseded{activeRevision.supersededAt ? ` on ${formatDate(activeRevision.supersededAt)}` : ""}.</span>
         {currentRevision && <button type="button" className="button" onClick={() => openRevision(currentRevision.id)}>Open Rev {currentRevision.revision}</button>}
       </div>}
-      <div className="viewer-stage" ref={viewport}>{error ? <div className="viewer-message" role="alert">{error} <button className="button secondary" onClick={() => { retried.current = false; void reload(); }}><RotateCw size={16} aria-hidden /> Retry</button></div> : ticket ? <div className="pdf-page">
+      <div className="viewer-stage" ref={viewport} onTouchStart={touchStart} onTouchMove={touchMove} onTouchEnd={touchEnd}>{error ? <div className="viewer-message" role="alert">{error} <button className="button secondary" onClick={() => { retried.current = false; void reload(); }}><RotateCw size={16} aria-hidden /> Retry</button></div> : ticket ? <div className="pdf-page">
         <Document file={ticket.url}
           onLoadProgress={({ loaded, total }) => { if (total) setProgress(Math.round(loaded / total * 100)); }}
           onLoadSuccess={({ numPages }) => { retried.current = false; setPages(numPages); setPage((p) => Math.min(p, numPages)); }}

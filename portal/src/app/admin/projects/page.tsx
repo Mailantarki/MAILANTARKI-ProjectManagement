@@ -8,7 +8,6 @@ import { AdminForm } from "../admin-form";
 import { saveProject, setProjectArchived } from "../manage-actions";
 import { CoverImageField } from "./cover-image-field";
 import { NameSlugFields } from "./name-slug-fields";
-import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 export default async function AdminProjectsPage() {
@@ -27,7 +26,7 @@ export default async function AdminProjectsPage() {
     (projects ?? []).map((project) => project.cover_image_url).filter(isStoragePath));
   const previews = new Map((projects ?? []).map((project) => [project.id,
     isStoragePath(project.cover_image_url) ? signed.get(project.cover_image_url) ?? null : project.cover_image_url] as const));
-  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><p className="eyebrow">Administration</p><h1>Projects</h1>
+  return <main className="main portal"><h1>Projects</h1>
     {!!available.length && <Card className="new-project"><h2>New project</h2>
       <AdminForm action={saveProject} label="Create project">
         <label className="field">Organization<select name="organizationId">{available.map((org) =>

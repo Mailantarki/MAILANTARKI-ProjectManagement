@@ -8,6 +8,8 @@ import { getUserClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { documentMetaSchema, MAX_PDF_BYTES } from "@/lib/admin/upload-schema";
 import { classifyUploads, type Classification } from "@/lib/documents/classify";
+import { headers } from "next/headers";
+import { publishAudience, publishEmail, sendPublishEmails } from "@/lib/updates/notify";
 
 const reviewSchema = z.object({
   projectId: z.uuid(),
@@ -138,4 +140,50 @@ export async function cancelUpload(input: unknown) {
   const { error: deleteError } = await user.from("documents").delete()
     .eq("id", docId).eq("upload_status", "pending");
   if (deleteError) throw new Error("Could not cancel unfinished upload");
+}
+
+async function authorizeSegments(projectId: string, segmentIds: string[]) {
+  const principal = await getPrincipal();
+  if (!principal || principal.kind !== "user") throw new Error("Not authorized");
+  const allowed = await Promise.all(segmentIds.map((segmentId) => authorize(principal, { projectId, segmentId }, "admin_upload")));
+  if (allowed.includes(false)) throw new Error("Not authorized");
+  return principal;
+}
+
+/** How many people the publish email would reach (step 3 checkbox). */
+export async function publishAudienceCount(input: unknown) {
+  const { projectId, segmentIds } = z.object({ projectId: z.uuid(), segmentIds: z.array(z.uuid()).min(1).max(50) }).parse(input);
+  const principal = await authorizeSegments(projectId, segmentIds);
+  return (await publishAudience(projectId, segmentIds, principal.userId)).length;
+}
+
+/** One email per person for a whole publish batch, with fixed links only. */
+export async function notifyPublished(input: unknown) {
+  const { projectId, documentIds } = z.object({ projectId: z.uuid(), documentIds: z.array(z.uuid()).min(1).max(200) }).parse(input);
+  const user = await getUserClient();
+  const [{ data: docs }, { data: project }, { data: events }] = await Promise.all([
+    user.from("documents").select("id,segment_id,doc_number,title,revision").eq("project_id", projectId)
+      .in("id", documentIds).eq("upload_status", "ready").is("archived_at", null),
+    user.from("projects").select("name,slug").eq("id", projectId).maybeSingle(),
+    user.from("document_events").select("document_id,kind").in("document_id", documentIds).in("kind", ["published", "revised"]),
+  ]);
+  if (!docs?.length || !project) throw new Error("Nothing to announce");
+  const principal = await authorizeSegments(projectId, [...new Set(docs.map((d) => d.segment_id))]);
+  const audience = await publishAudience(projectId, [...new Set(docs.map((d) => d.segment_id))], principal.userId);
+  const request = await headers();
+  const base = process.env.PORTAL_URL || `${request.get("x-forwarded-proto") ?? "https"}://${request.get("host")}`;
+  const revised = new Set((events ?? []).filter((e) => e.kind === "revised").map((e) => e.document_id));
+  const email = publishEmail({
+    projectName: project.name, projectUrl: new URL(`/projects/${project.slug}`, base).toString(),
+    documents: docs.map((d) => ({ segmentId: d.segment_id, docNumber: d.doc_number, title: d.title, revision: d.revision,
+      kind: revised.has(d.id) ? "revised" as const : "new" as const,
+      url: new URL(`/projects/${project.slug}/documents/${encodeURIComponent(d.doc_number)}`, base).toString() })),
+  });
+  const result = await sendPublishEmails(audience, email);
+  if (result.sent) {
+    // Marks the events of this batch (service role: clients cannot write events).
+    await getAdminClient().from("document_events").update({ batch_id: randomUUID() })
+      .in("document_id", docs.map((d) => d.id)).in("kind", ["published", "revised"]).is("batch_id", null);
+  }
+  return { recipients: audience.length, sent: result.sent, configured: result.configured };
 }

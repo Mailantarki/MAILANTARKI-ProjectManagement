@@ -42,7 +42,7 @@ test.describe.serial("admin organizations, projects and users", () => {
     await page.getByLabel("Email").fill(fixture.superEmail);
     await page.getByLabel("Password").fill(fixture.superPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.goto("/admin/organizations");
     await page.getByRole("heading", { name: "New organization" }).locator("..").getByLabel("Name").fill(fixture.organizationName);
     await page.getByRole("button", { name: "Create organization" }).click();
@@ -62,7 +62,7 @@ test.describe.serial("admin organizations, projects and users", () => {
     await expect(orgRow.getByRole("img", { name: "Organization logo preview" })).toBeVisible();
     const { data: logo } = await admin.storage.from("project-covers").download(fixture.logoPath);
     expect(logo?.size).toBeGreaterThan(0);
-    await expect(page.locator(".back-link")).toHaveAttribute("href", "/admin");
+    await expect(page.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/admin");
     await orgRow.getByRole("button", { name: "Archive" }).click();
     await page.getByRole("dialog", { name: "Archive" }).getByRole("button", { name: "Archive" }).click();
     await expect(orgRow.getByRole("button", { name: "Restore" })).toBeVisible();
@@ -71,7 +71,7 @@ test.describe.serial("admin organizations, projects and users", () => {
 
     await page.goto("/admin/projects");
     await page.screenshot({ path: "/tmp/mailantarki-unified-admin.png", fullPage: true });
-    await expect(page.getByRole("link", { name: "Administration" })).toHaveAttribute("href", "/admin");
+    await expect(page.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Projects & documents" })).toHaveAttribute("aria-current", "page");
     const newProject = page.getByRole("heading", { name: "New project" }).locator("..");
     await newProject.getByLabel("Organization").selectOption({ label: "MAILANTARKI.COM" });
     await newProject.getByLabel("Name").fill(fixture.projectName);
@@ -136,11 +136,11 @@ test.describe.serial("admin organizations, projects and users", () => {
     const memberRow = page.locator(".users-table tbody tr", { hasText: fixture.memberEmail });
     await memberRow.getByRole("button", { name: "Manage", exact: true }).click();
     const memberPanel = page.getByRole("dialog", { name: `Member ${suffix}`, exact: true });
-    // A <select> inside its <label> has the selected option in its accessible name ("Project Daige …"),
-    // so an exact label match never finds it.
-    await memberPanel.locator('select[name="projectId"]').selectOption({ label: fixture.projectName });
-    await memberPanel.locator('select[name="segmentId"]').selectOption({ label: "Architecture" });
-    await memberPanel.getByRole("button", { name: "Assign access" }).click();
+    // Person panel: one row per project; access, level and disciplines are saved together.
+    const projectAccess = memberPanel.getByRole("group", { name: fixture.projectName });
+    await projectAccess.locator("select").first().selectOption("some");
+    await projectAccess.getByLabel("Architecture").check();
+    await memberPanel.getByRole("button", { name: "Save access" }).click();
     await expect(memberPanel.locator(".user-grant")).toContainText("Architecture");
     await memberPanel.getByRole("button", { name: "Close", exact: true }).click();
     await page.screenshot({ path: "/tmp/mailantarki-users-desktop.png", fullPage: true });
@@ -164,8 +164,9 @@ test.describe.serial("admin organizations, projects and users", () => {
       const coverLoaded = member.waitForResponse((response) =>
         response.url().includes("/storage/v1/object/sign/project-covers/") && response.status() === 200);
       await member.getByRole("button", { name: "Save password", exact: true }).click();
-      await expect(member.getByRole("link", { name: new RegExp(fixture.projectName) })).toBeVisible();
-      await expect(member.getByRole("link", { name: new RegExp(fixture.projectName) }).locator(".project-cover")).toBeVisible();
+      // One project: Home goes straight to it, with the cover in the project header.
+      await expect(member).toHaveURL(new RegExp(`/projects/${fixture.projectSlug}$`));
+      await expect(member.locator(".project-header .project-thumb")).toBeVisible();
       expect((await coverLoaded).headers()["content-type"]).toBe("image/png");
       expect((await member.request.get("/admin/logs/export")).status()).toBe(404);
       await memberRow.getByRole("button", { name: "Manage", exact: true }).click();
@@ -177,7 +178,7 @@ test.describe.serial("admin organizations, projects and users", () => {
       await suspension.getByRole("button", { name: "Suspend user" }).click();
       await expect(memberPanel.getByRole("button", { name: "Reactivate user", exact: true })).toBeVisible();
       await member.reload();
-      await expect(member).toHaveURL(/\/$/);
+      await expect(member).toHaveURL(/\/(\?next=[^/]*)?$/);
       const deniedLogin = await member.request.post("/api/auth/login", {
         headers: { Origin: new URL(member.url()).origin }, data: { email: fixture.memberEmail, password: newPassword },
       });
@@ -190,7 +191,7 @@ test.describe.serial("admin organizations, projects and users", () => {
       await member.getByLabel("Email").fill(fixture.memberEmail);
       await member.getByLabel("Password", { exact: true }).fill(newPassword);
       await member.getByRole("button", { name: "Sign in" }).click();
-      await expect(member).toHaveURL(/\/projects$/);
+      await expect(member).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
       await page.goto("/admin/projects");
       await page.locator(".admin-record", { hasText: fixture.projectName }).getByRole("button", { name: "Archive" }).click();
       await page.getByRole("dialog", { name: "Archive" }).getByRole("button", { name: "Archive" }).click();

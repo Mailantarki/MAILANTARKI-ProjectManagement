@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Eye } from "lucide-react";
+import { useDocumentSet } from "@/components/documents/document-set";
 
 const Viewer = dynamic(() => import("./viewer"), { ssr: false });
 
@@ -17,6 +18,7 @@ export function PdfViewerLauncher({ document, variant = "button" }: { document: 
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const siblings = useDocumentSet();
   if (variant === "auto") {
     const close = () => {
       setOpen(false);
@@ -24,13 +26,13 @@ export function PdfViewerLauncher({ document, variant = "button" }: { document: 
       next.delete("open");
       router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
     };
-    return open ? <Viewer document={document} onClose={close} /> : null;
+    return open ? <Viewer document={document} siblings={siblings} onClose={close} /> : null;
   }
   return <>
     {variant === "title"
       ? <button className="document-open" type="button" onClick={() => setOpen(true)}>{document.title}</button>
       : <button className="view-document" type="button" onClick={() => setOpen(true)} aria-label={`View ${document.title}`}><Eye size={15} aria-hidden />View</button>}
-    {open && <Viewer document={document} onClose={() => setOpen(false)} />}
+    {open && <Viewer document={document} siblings={siblings} onClose={() => setOpen(false)} />}
   </>;
 }
 

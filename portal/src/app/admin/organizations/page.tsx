@@ -1,8 +1,6 @@
 import { getUserClient } from "@/lib/supabase/server";
 import { isStoragePath, signStorageUrls } from "@/lib/storage/signed-urls";
 import { LogoField } from "./logo-field";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/lib/auth/principal";
 import { authorizeSuperAdmin, isAdminPrincipal } from "@/lib/auth/authorize";
@@ -22,7 +20,7 @@ export default async function OrganizationsPage() {
     (organizations ?? []).map((org) => org.logo_url).filter(isStoragePath));
   const previews = new Map((organizations ?? []).map((org) => [org.id,
     isStoragePath(org.logo_url) ? signed.get(org.logo_url) ?? null : org.logo_url] as const));
-  return <main className="main portal"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link><h1>Organizations</h1>
+  return <main className="main portal"><h1>Organizations</h1>
     {authorizeSuperAdmin(principal) && <section className="admin-section"><h2>New organization</h2>
       <AdminForm action={saveOrganization} label="Create organization">
         <label className="field">Name<input name="name" required maxLength={120} /></label>

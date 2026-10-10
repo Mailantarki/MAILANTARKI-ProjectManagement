@@ -1,13 +1,15 @@
 import { getPrincipal } from "@/lib/auth/principal";
 import Link from "next/link";
-import { ArrowLeft, History } from "lucide-react";
+import { History } from "lucide-react";
 import { redirect } from "next/navigation";
 import { authorizeSuperAdmin, authorizeAdminOrganization, authorizeUserSuspension, authorizeUserAssignment, isAdminPrincipal } from "@/lib/auth/authorize";
 import { getUserClient } from "@/lib/supabase/server";
 import { directorySchema, parseUserFilters } from "@/lib/admin/user-directory";
 import { AdminForm } from "../admin-form";
 import { CreateUserForm } from "./create-user-form";
-import { grantUserAccess, removeUserAccess, setUserSuspended } from "./actions";
+import { setUserSuspended } from "./actions";
+import { AccessMatrix } from "./access-matrix";
+import { PeopleTabs } from "../people-tabs";
 import { UserDialog } from "./dialog";
 import { FilterForm } from "@/components/documents/filter-form";
 
@@ -15,7 +17,8 @@ const roles = { super_admin: "Super admin", org_admin: "Organization admin", mem
 export default async function AdminUsersPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const filters = parseUserFilters(await searchParams);
+  const search = await searchParams;
+  const filters = parseUserFilters(search);
   const user = await getUserClient();
   // The directory and the lookup lists are independent: fetch them in one parallel round.
   // Queries run under RLS, so they start while the session is verified; nothing renders unless the viewer is an admin.
@@ -45,10 +48,11 @@ export default async function AdminUsersPage({ searchParams }: {
     return `/admin/users?${params}`;
   };
   return <main className="main portal users-page">
-    <Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link>
-    <div className="admin-page-title"><h1>Users</h1><UserDialog title="Create user" label="New user">
+    <div className="admin-page-title"><h1>People &amp; access</h1><UserDialog title="Create user" label="New user" defaultOpen={search.new === "1"}>
       <CreateUserForm organizations={availableOrganizations} canCreateSuper={isSuper} />
     </UserDialog></div>
+    <PeopleTabs active={filters.status === "pending" ? "pending" : "members"} />
+    {filters.status === "pending" && <p className="page-lede">People with a temporary password who have not set their own yet.</p>}
     <FilterForm className="user-filters" activeCount={[filters.projectId, filters.role, filters.status, filters.organizationId].filter(Boolean).length}
       search={<label>Search<input name="q" type="search" placeholder="Name or email" defaultValue={filters.q ?? ""} maxLength={120} autoComplete="off" /></label>}>
       <label>Project<select name="projectId" defaultValue={filters.projectId ?? ""}><option value="">All projects</option>
@@ -83,18 +87,13 @@ export default async function AdminUsersPage({ searchParams }: {
           {profile.role !== "member" && <p>Access is inherited from the administrator role.</p>}
           {grants.map((grant) => <div className="user-grant" key={grant.id}>
             <strong>{projects?.find((p) => p.id === grant.project_id)?.name ?? "Archived project"}</strong>
-            <span>{segments?.find((s) => s.id === grant.segment_id)?.name ?? "All disciplines"}{grant.can_download ? " · Download allowed" : ""}</span>
-            {ownedProjects.some((p) => p.id === grant.project_id) && <AdminForm action={removeUserAccess} label="Remove access" danger
-              confirmMessage={`Remove this project/discipline assignment from ${profile.full_name}?`}>
-              <input type="hidden" name="assignmentId" value={grant.id} /></AdminForm>}
+            <span>{segments?.find((s) => s.id === grant.segment_id)?.name ?? "All disciplines"} · {grant.can_download ? "View and download" : "View only"}</span>
           </div>)}
           {!grants.length && profile.role === "member" && <p>No project assignments.</p>}
-          {!!ownedProjects.length && <section className="user-panel-section"><h3>Assign access</h3><AdminForm action={grantUserAccess} label="Assign access">
-            <input type="hidden" name="userId" value={profile.id} />
-            <label className="field">Project<select name="projectId">{ownedProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-            <label className="field">Discipline<select name="segmentId"><option value="">All disciplines</option>{(segments ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-            <label className="check-field"><input type="checkbox" name="canDownload" />Allow download</label>
-          </AdminForm></section>}
+          {!!ownedProjects.length && profile.role === "member" && <section className="user-panel-section"><h3>Change access</h3>
+            <AccessMatrix userId={profile.id} projects={ownedProjects.map((p) => ({ id: p.id, name: p.name }))}
+              segments={segments ?? []} grants={grants.map((g) => ({ project_id: g.project_id, segment_id: g.segment_id, can_download: g.can_download }))} />
+          </section>}
           {authorizeUserSuspension(principal, profile) && <section className="user-panel-section"><h3>Account status</h3>
             <AdminForm action={setUserSuspended} label={suspended ? "Reactivate user" : "Suspend user"} danger={!suspended}
               confirmMessage={suspended ? `Restore portal access for ${profile.full_name}? Existing assignments will be retained.` : `Suspend ${profile.full_name}? Portal access will be blocked, including existing sessions. Assignments and history will be retained.`}>

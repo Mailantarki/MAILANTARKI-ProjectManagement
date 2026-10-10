@@ -9,7 +9,8 @@ import { compareRevisions } from "@/lib/documents/revision";
 import { AdminForm } from "../../../admin-form";
 import { makeDocumentCurrent, setDocumentArchived } from "./actions";
 import { DocumentControls } from "./document-controls";
-import { ArrowLeft, FilePlus2, Upload } from "lucide-react";
+import { BulkSelection, RowMenu, SelectAll, SelectRow } from "./bulk";
+import { FilePlus2, Upload } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { docTypeLabels, formatDate, label } from "@/lib/format";
 
@@ -64,17 +65,20 @@ export default async function AdminDocumentsPage({ params, searchParams }: { par
   </AdminForm>;
   const newRevision = (document: Row) => withReturnTo(`/admin/projects/${project.slug}/documents/new?revisionOf=${document.id}`, current);
 
-  return <main className="main portal"><Link className="back-link" href={back}><ArrowLeft size={15} aria-hidden />{back.startsWith("/projects/") ? "Back to project" : "Projects"}</Link>
-    <div className="eyebrow">{project.name}</div>
+  return <main className="main portal">
+    <nav className="breadcrumb" aria-label="Breadcrumb"><Link href="/admin/projects">Projects</Link><span aria-hidden>/</span>
+      <Link href={back.startsWith("/projects/") ? back : `/projects/${project.slug}`}>{project.name}</Link><span aria-hidden>/</span><span aria-current="page">Documents</span></nav>
     <div className="admin-page-title"><h1>Documents</h1>
       {!project.archived_at && <Link className="button" href={withReturnTo(`/admin/projects/${project.slug}/documents/new`, current)}><Upload size={16} aria-hidden />Upload PDFs</Link>}</div>
     {project.archived_at && <p>This project is archived. Restore the project before restoring documents.</p>}
     <section className="admin-section"><h2>Active ({drawings.length} {drawings.length === 1 ? "drawing" : "drawings"}{revisionCount > drawings.length ? `, ${revisionCount} revisions` : ""})</h2>
       {!drawings.length ? <p className="empty-results">No active documents.</p> :
+      <BulkSelection ids={drawings.map((d) => d.head.id)}>
       <div className="table-scroll"><table className="document-table responsive-table admin-drawings"><thead><tr>
-        <th>Document</th><th>Discipline</th><th>Number</th><th>Type</th><th>Revision</th><th>Status</th><th>Issue date</th><th>Actions</th>
+        <th className="bulk-cell"><SelectAll /></th><th>Document</th><th>Discipline</th><th>Number</th><th>Type</th><th>Revision</th><th>Status</th><th>Issue date</th><th>Actions</th>
       </tr></thead><tbody>{drawings.map(({ head, earlier }) => <Fragment key={head.id}>
         <tr>
+          <td className="bulk-cell"><SelectRow id={head.id} label={`${head.doc_number} ${head.title}`} /></td>
           <td className="document-title">{head.title}</td><td data-label="Discipline">{segmentOf(head.segments)?.name ?? "-"}</td>
           <td className="document-number" data-label="Number">{head.doc_number}</td><td data-label="Type">{label(docTypeLabels, head.doc_type)}</td>
           <td data-label="Revision"><strong>Rev {head.revision}</strong>{!head.is_current && <> <StatusBadge status="superseded" /></>}</td>
@@ -83,10 +87,10 @@ export default async function AdminDocumentsPage({ params, searchParams }: { par
           <td className="document-actions"><div className="document-admin-actions">
             {controls(head)}
             {!project.archived_at && <Link className="button secondary" href={newRevision(head)}><FilePlus2 size={14} aria-hidden />New revision</Link>}
-            {archiveForm(head, false)}
+            <RowMenu id={head.id}>{archiveForm(head, false)}</RowMenu>
           </div></td>
         </tr>
-        {!!earlier.length && <tr className="revision-history-row"><td colSpan={8}>
+        {!!earlier.length && <tr className="revision-history-row"><td colSpan={9}>
           <details><summary>{earlier.length} earlier {earlier.length === 1 ? "revision" : "revisions"}</summary>
             <ul className="revision-history">{earlier.map((document) => <li key={document.id}>
               <span className="revision-history-rev">Rev {document.revision}</span>
@@ -99,12 +103,13 @@ export default async function AdminDocumentsPage({ params, searchParams }: { par
                   <input type="hidden" name="id" value={document.id} />
                 </AdminForm>
                 {controls(document)}
-                {archiveForm(document, false)}
+                <RowMenu id={document.id}>{archiveForm(document, false)}</RowMenu>
               </span>
             </li>)}</ul>
           </details>
         </td></tr>}
-      </Fragment>)}</tbody></table></div>}
+      </Fragment>)}</tbody></table></div>
+      </BulkSelection>}
     </section>
     <section className="admin-section"><h2>Archived ({archived.length})</h2>
       {!archived.length ? <p className="empty-results">No archived documents.</p> :

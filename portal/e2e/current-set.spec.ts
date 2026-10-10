@@ -34,7 +34,7 @@ async function signIn(page: Page, user: { email: string; password: string }) {
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Password").fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
 }
 
 test.describe.serial("current set and revisions", () => {
@@ -141,5 +141,36 @@ test.describe.serial("current set and revisions", () => {
     for (const row of data ?? []) fixture.documents[row.revision] = row.id;
     expect(data?.find((row) => row.is_current)?.revision).toBe("D");
     expect(data?.map((row) => row.revision).sort()).toEqual(["A", "B", "C", "D"]);
+  });
+
+  test("the admin changes the status of several drawings and undoes it", async ({ page }) => {
+    await signIn(page, fixture.admin);
+    await page.goto("/admin/projects/maylan-plaza/documents");
+    const drawing = page.locator("tbody tr", { hasText: number }).first();
+    const before = await drawing.locator("td[data-label=Status]").innerText();
+    await drawing.getByRole("checkbox").check();
+    const bar = page.getByRole("region", { name: "Bulk actions" });
+    await expect(bar).toContainText("1 selected");
+    await bar.getByRole("combobox", { name: "Change status" }).selectOption("as_built");
+    await expect(page.locator("tbody tr", { hasText: number }).first().locator("td[data-label=Status]")).toHaveText("As-built");
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.locator("tbody tr", { hasText: number }).first().locator("td[data-label=Status]")).toHaveText(before);
+  });
+
+  test("the current set of a discipline downloads as one ZIP, only with download rights", async ({ page }) => {
+    await signIn(page, fixture.member);
+    expect((await page.request.get("/api/projects/maylan-plaza/zip?segment=architecture")).status()).toBe(404);
+    await page.context().clearCookies();
+    await signIn(page, fixture.admin);
+    const since = new Date().toISOString();
+    const response = await page.request.get("/api/projects/maylan-plaza/zip?segment=architecture");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe("application/zip");
+    const body = await response.body();
+    expect(body.subarray(0, 2).toString()).toBe("PK");
+    expect(body.includes(Buffer.from(`${number} `))).toBe(true);
+    const { count } = await admin.from("access_logs").select("id", { count: "exact", head: true })
+      .eq("action", "download").eq("document_id", fixture.documents.D).gte("created_at", since);
+    expect(count).toBe(1);
   });
 });

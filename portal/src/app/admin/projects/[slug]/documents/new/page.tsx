@@ -6,8 +6,7 @@ import { getUserClient } from "@/lib/supabase/server";
 import { compareRevisions } from "@/lib/documents/revision";
 import { UploadForm, type RevisionTemplate } from "./upload-form";
 import Link from "next/link";
-import { projectReturn } from "@/lib/navigation/project-return";
-import { ArrowLeft } from "lucide-react";
+import { projectReturn, withReturnTo } from "@/lib/navigation/project-return";
 
 export default async function NewDocumentsPage({ params, searchParams }: {
   params: Promise<{ slug: string }>; searchParams: Promise<{ returnTo?: string | string[]; revisionOf?: string | string[] }>;
@@ -43,9 +42,14 @@ export default async function NewDocumentsPage({ params, searchParams }: {
       docType: drawing.doc_type, latestRevision: latest };
   }
 
-  return <main className="main portal"><Link className="back-link" href={back}>
-    <ArrowLeft size={15} aria-hidden />{back.startsWith("/projects/") ? "Back to project" : "Documents"}</Link>
-    <div className="eyebrow">{project.name}</div>
+  // The portal page (with its filters) this flow started from, directly or through the documents page.
+  const inner = back.includes("?") ? new URLSearchParams(back.slice(back.indexOf("?") + 1)).get("returnTo") : null;
+  const portalBack = back.startsWith("/projects/") ? back : inner?.startsWith("/projects/") ? inner : `/projects/${slug}`;
+  return <main className="main portal">
+    <nav className="breadcrumb" aria-label="Breadcrumb">
+      <Link href={portalBack}>{project.name}</Link><span aria-hidden>/</span>
+      <Link href={back.startsWith("/admin/") ? back : withReturnTo(`/admin/projects/${slug}/documents`, back)}>Documents</Link><span aria-hidden>/</span>
+      <span aria-current="page">{template ? "New revision" : "Upload"}</span></nav>
     <h1>{template ? `New revision of ${template.docNumber}` : "Upload documents"}</h1>
     {template && <p className="page-lede">{template.title} · current Rev {template.latestRevision}. The file you add is uploaded as the next revision; the current one moves to the history when you publish.</p>}
     <UploadForm projectId={project.id} segments={allowed} template={template} doneHref={back} />

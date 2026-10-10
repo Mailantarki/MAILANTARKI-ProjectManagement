@@ -44,9 +44,9 @@ test.describe.serial("admin code to isolated visitor session", () => {
     await page.getByLabel("Email").fill(fixture.email);
     await page.getByLabel("Password").fill(fixture.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.goto("/admin/codes");
-    await expect(page.getByRole("heading", { name: "Access codes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "People & access" })).toBeVisible();
     await page.getByRole("button", { name: "New code" }).click();
     const dialog = page.getByRole("dialog", { name: "New access code" });
     await dialog.getByLabel("Label").fill(`Circle ${fixture.email}`);
@@ -70,7 +70,7 @@ test.describe.serial("admin code to isolated visitor session", () => {
       await visitor.goto("/");
       await visitor.getByLabel("Enter access code").fill(code);
       await visitor.getByRole("button", { name: "Enter access code" }).click();
-      await expect(visitor).toHaveURL(/\/projects$/);
+      await expect(visitor).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
       await visitor.goto("/projects/mailantarki-sports-complex");
       const tabs = visitor.getByRole("navigation", { name: "Disciplines" });
       await expect(tabs.getByRole("link", { name: /^Architecture/ })).toHaveCount(1);
@@ -89,7 +89,7 @@ test.describe.serial("admin code to isolated visitor session", () => {
       await visitor.goto("/");
       await visitor.getByLabel("Enter access code").fill(code);
       await visitor.getByRole("button", { name: "Enter access code" }).click();
-      await expect(visitor).toHaveURL(/\/projects$/);
+      await expect(visitor).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
       await row.getByRole("button", { name: "Delete code" }).click();
       await page.getByRole("dialog", { name: "Delete code" }).getByRole("button", { name: "Delete code" }).click();
       await expect(row).toHaveCount(0);

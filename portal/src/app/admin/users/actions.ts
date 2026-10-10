@@ -131,3 +131,84 @@ export async function removeUserAccess(form: FormData) {
   if (error) throw new Error("Could not remove assignment");
   revalidatePath("/admin/users");
 }
+
+/**
+ * "Resend invite" for someone who never signed in: sends the standard set-password email
+ * (Supabase Auth). The temporary password stops mattering once they set their own.
+ */
+export async function resendInvite(input: unknown) {
+  const id = uuid.parse(input);
+  const principal = await getPrincipal();
+  const user = await getUserClient();
+  const { data: target } = await user.from("profiles").select("id,organization_id,role").eq("id", id).maybeSingle();
+  if (!target || !authorizeUserSuspension(principal, target)) throw new Error("Not authorized");
+  const admin = getAdminClient();
+  const { data } = await admin.auth.admin.getUserById(id);
+  const email = data.user?.email;
+  if (!email) throw new Error("This person has no email address");
+  const { headers } = await import("next/headers");
+  const request = await headers();
+  const origin = process.env.PORTAL_URL || `${request.get("x-forwarded-proto") ?? "https"}://${request.get("host")}`;
+  const { error } = await admin.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/auth/confirm` });
+  if (error) throw new Error("Could not send the email. Check the email settings in Supabase Auth.");
+}
+
+const accessPlan = z.object({
+  userId: uuid,
+  projects: z.array(z.object({
+    projectId: uuid,
+    mode: z.enum(["none", "all", "some"]),
+    segmentIds: z.array(uuid).max(50),
+    canDownload: z.boolean(),
+  })).min(1).max(200),
+});
+
+/**
+ * "Save access" of the person panel: the whole project × discipline matrix in one step. Only the
+ * projects sent are touched, and each one must be a project this admin may assign.
+ */
+export async function saveUserAccess(input: unknown) {
+  const plan = accessPlan.parse(input);
+  const principal = await getPrincipal();
+  const user = await getUserClient();
+  const projectIds = plan.projects.map((p) => p.projectId);
+  const [{ data: profile }, { data: projects }, { data: segments }, { data: existing, error: loadError }] = await Promise.all([
+    user.from("profiles").select("id,organization_id,role").eq("id", plan.userId).maybeSingle(),
+    user.from("projects").select("id,organization_id").in("id", projectIds).is("archived_at", null),
+    user.from("segments").select("id"),
+    user.from("user_project_access").select("id,project_id,segment_id,can_download").eq("user_id", plan.userId).in("project_id", projectIds),
+  ]);
+  if (!profile || loadError || (projects ?? []).length !== new Set(projectIds).size) throw new Error("Not authorized");
+  const known = new Set((segments ?? []).map((s) => s.id));
+  for (const project of projects ?? []) {
+    if (!authorizeUserAssignment(principal, profile.id, profile.organization_id, profile.role, project.organization_id)
+      || !(await authorize(principal, { projectId: project.id, segmentId: "00000000-0000-0000-0000-000000000000" }, "admin_manage"))) {
+      throw new Error("Not authorized");
+    }
+  }
+  const key = (segmentId: string | null, canDownload: boolean) => `${segmentId ?? "all"}:${canDownload}`;
+  const removals: string[] = [];
+  const inserts: { user_id: string; project_id: string; segment_id: string | null; can_download: boolean }[] = [];
+  for (const item of plan.projects) {
+    if (item.mode === "some" && (!item.segmentIds.length || item.segmentIds.some((id) => !known.has(id)))) throw new Error("Choose at least one discipline");
+    const wanted = new Set(item.mode === "none" ? [] : item.mode === "all" ? [key(null, item.canDownload)]
+      : item.segmentIds.map((id) => key(id, item.canDownload)));
+    const current = (existing ?? []).filter((row) => row.project_id === item.projectId);
+    const have = new Set(current.map((row) => key(row.segment_id, row.can_download)));
+    for (const row of current) if (!wanted.has(key(row.segment_id, row.can_download))) removals.push(row.id);
+    for (const wantedKey of wanted) if (!have.has(wantedKey)) {
+      const [segment, download] = wantedKey.split(":");
+      inserts.push({ user_id: plan.userId, project_id: item.projectId, segment_id: segment === "all" ? null : segment, can_download: download === "true" });
+    }
+  }
+  if (removals.length) {
+    const { error } = await user.from("user_project_access").delete().in("id", removals);
+    if (error) throw new Error("Could not save access");
+  }
+  if (inserts.length) {
+    const { error } = await user.from("user_project_access").insert(inserts);
+    if (error) throw new Error("Could not save access");
+  }
+  revalidatePath("/admin/users");
+  return { added: inserts.length, removed: removals.length };
+}

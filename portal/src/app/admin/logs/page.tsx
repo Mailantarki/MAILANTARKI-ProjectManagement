@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/lib/auth/principal";
 import { isAdminPrincipal } from "@/lib/auth/authorize";
@@ -65,7 +65,7 @@ export default async function AdminLogsPage({ searchParams }: {
   const userSelect = <label>User<select name="userId" defaultValue={filters.userId ?? ""}><option value="">All users</option>
     {(profiles ?? []).map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select></label>;
 
-  return <main className="main portal logs-page"><Link className="back-link" href="/admin"><ArrowLeft size={15} aria-hidden />Administration</Link>
+  return <main className="main portal logs-page">
     <div className="admin-page-title"><h1>Activity log</h1>
       {/* Plain link: a <Link> would prefetch the streaming CSV route. */}
       {!adminTab && <a className="button secondary" href={`/admin/logs/export?${exportParams}`} download>Export CSV</a>}</div>

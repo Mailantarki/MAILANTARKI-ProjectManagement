@@ -39,25 +39,26 @@ test.describe.serial("admin upload transition", () => {
     await page.getByLabel("Email").fill(fixture.email);
     await page.getByLabel("Password").fill(fixture.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.goto("/projects/maylan-plaza?segment=interior-design&status=draft");
     await page.getByRole("link", { name: "Manage documents", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
     await page.getByRole("link", { name: "Upload PDFs", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Upload documents", exact: true })).toBeVisible();
-    await page.locator(".back-link").click();
+    const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+    await breadcrumb.getByRole("link", { name: "Documents", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Back to project", exact: true }).click();
+    await breadcrumb.getByRole("link", { name: "Maylan Plaza", exact: true }).click();
     await expect(page).toHaveURL(/\/projects\/maylan-plaza\?/);
     expect(new URL(page.url()).searchParams.get("segment")).toBe("interior-design");
     expect(new URL(page.url()).searchParams.get("status")).toBe("draft");
     await page.getByRole("link", { name: "Upload PDFs", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Upload documents", exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Back to project", exact: true }).click();
+    await breadcrumb.getByRole("link", { name: "Maylan Plaza", exact: true }).click();
     await expect(page).toHaveURL(/\/projects\/maylan-plaza\?/);
     expect(new URL(page.url()).searchParams.get("segment")).toBe("interior-design");
     await page.goto("/admin/projects/maylan-plaza/documents");
-    await page.locator(".back-link").click();
+    await breadcrumb.getByRole("link", { name: "Projects", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/projects$/);
   });
 
@@ -66,7 +67,7 @@ test.describe.serial("admin upload transition", () => {
     await page.getByLabel("Email").fill(fixture.email);
     await page.getByLabel("Password").fill(fixture.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
 
     await page.goto("/admin/projects/maylan-plaza/documents/new");
     await expect(page.getByRole("heading", { name: "Upload documents" })).toBeVisible();
@@ -98,7 +99,7 @@ test.describe.serial("admin upload transition", () => {
     const editDialog = page.getByRole("dialog", { name: "Edit document" });
     await editDialog.getByLabel("Title").fill(`${fixture.number} featured plan`);
     await editDialog.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByRole("cell", { name: `${fixture.number} featured plan` })).toBeVisible();
+    await expect(page.getByRole("cell", { name: `${fixture.number} featured plan`, exact: true })).toBeVisible();
     await page.getByRole("row", { name: new RegExp(fixture.number) })
       .getByRole("button", { name: "Feature" }).click();
     await expect(page.getByRole("row", { name: new RegExp(fixture.number) })
@@ -106,6 +107,7 @@ test.describe.serial("admin upload transition", () => {
     await page.goto("/projects/maylan-plaza");
     await expect(page.getByRole("row", { name: new RegExp(fixture.number) }).locator(".featured-star")).toBeVisible();
     await page.goto("/admin/projects/maylan-plaza/documents");
+    await page.getByRole("row", { name: new RegExp(fixture.number) }).getByRole("button", { name: "More actions" }).click();
     await page.getByRole("row", { name: new RegExp(fixture.number) }).getByRole("button", { name: "Archive" }).click();
     await page.getByRole("dialog", { name: "Archive" }).getByRole("button", { name: "Archive" }).click();
     await expect(page.getByRole("heading", { name: "Archived (1)" })).toBeVisible();
@@ -123,7 +125,7 @@ test.describe.serial("admin upload transition", () => {
     await page.getByLabel("Email").fill(fixture.email);
     await page.getByLabel("Password").fill(fixture.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL(/\/projects(\/[a-z0-9-]+)?$/);
     await page.goto("/admin/projects/maylan-plaza/documents/new");
     const pdf = await PDFDocument.create();
     pdf.addPage([300, 300]);

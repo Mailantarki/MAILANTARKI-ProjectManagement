@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { z } from "zod";
 import { authorizeWithReader, memoryReader, type AccessSnapshot, type ProjectAccess } from "../auth/authorize";
 import type { Principal } from "../auth/principal";
@@ -116,6 +117,12 @@ async function loadRaw(identity: Identity, slug?: string): Promise<RawData> {
   };
 }
 
+// Layout (sidebar) and page ask for the same data in one request: share the promise.
+const loadRawCached = cache((kind: Identity["kind"], id: string, slug: string) =>
+  loadRaw(kind === "user" ? { kind, userId: id } : { kind, accessCodeId: id }, slug || undefined));
+const rawFor = (identity: Identity, slug?: string) =>
+  loadRawCached(identity.kind, identity.kind === "user" ? identity.userId : identity.accessCodeId, slug ?? "");
+
 const identityOf = (principal: Principal): Identity => principal.kind === "user"
   ? { kind: "user", userId: principal.userId } : { kind: "visitor", accessCodeId: principal.accessCodeId };
 const sameIdentity = (a: Identity, b: Identity) => a.kind === "user"
@@ -124,7 +131,7 @@ const sameIdentity = (a: Identity, b: Identity) => a.kind === "user"
 /** Starts loading page data from the cookie identity, in parallel with getPrincipal(). */
 export function preload(identity: Identity | null, slug?: string): Preloaded | undefined {
   if (!identity) return undefined;
-  const data = loadRaw(identity, slug);
+  const data = rawFor(identity, slug);
   data.catch(() => undefined); // surfaced (or ignored) where it is awaited
   return { identity, slug, data };
 }
@@ -133,7 +140,7 @@ export function preload(identity: Identity | null, slug?: string): Preloaded | u
 async function authorizedProjects(principal: Principal, slug?: string, preloaded?: Preloaded) {
   const identity = identityOf(principal);
   const raw = preloaded && preloaded.slug === slug && sameIdentity(preloaded.identity, identity)
-    ? await preloaded.data : await loadRaw(identity, slug);
+    ? await preloaded.data : await rawFor(identity, slug);
   const { client, projects, segments, snapshot, countRows } = raw;
   for (const project of projects) snapshot.projects.set(project.id, access(project));
   const reader = memoryReader(snapshot);
@@ -209,7 +216,9 @@ const DOCUMENT_FIELDS = "id,title,doc_number,doc_type,revision,status,issue_date
  * `filters.revisions === "all"`; `openId` additionally returns that document (any revision)
  * so the page can open the viewer on load, if the principal may see it.
  */
-export async function projectDocuments(principal: Principal, slug: string, filters: Filters, preloaded?: Preloaded, openId?: string) {
+export async function projectDocuments(principal: Principal, slug: string, filters: Filters, preloaded?: Preloaded, openId?: string,
+  /** Only these drawings (by `segmentId:docNumber`): "Show only these" updates. */
+  only?: string[]) {
   return timed("projectDocuments", async () => {
     const { client, items, reader, countBy } = await authorizedProjects(principal, slug, preloaded);
     const item = items.find((candidate) => candidate.project.slug === slug);
@@ -229,6 +238,10 @@ export async function projectDocuments(principal: Principal, slug: string, filte
     if (filters.from) query = query.gte("issue_date", filters.from);
     if (filters.to) query = query.lte("issue_date", filters.to);
     if (filters.q) query = query.textSearch("search_vector", filters.q, { type: "websearch", config: "simple" });
+    if (only) {
+      const numbers = [...new Set(only.filter((key) => segmentIds.includes(key.slice(0, 36))).map((key) => key.slice(37)))];
+      query = numbers.length ? query.in("doc_number", numbers) : query.eq("id", "00000000-0000-0000-0000-000000000000");
+    }
     // The history keeps each number's revisions together, current first.
     query = history
       ? query.order("doc_number").order("is_current", { ascending: false }).order("created_at", { ascending: false })
@@ -267,4 +280,18 @@ export async function projectDocuments(principal: Principal, slug: string, filte
       opened: (opened?.data ?? null) as ProjectDocument | null,
       downloadable: downloadable.filter((id): id is string => id !== null) };
   });
+}
+
+/**
+ * Everything the principal may search: the authorized (project, discipline) pairs and the client
+ * that searches them (the user's session under RLS, or the service client for a visitor's code).
+ */
+export async function searchScope(principal: Principal, preloaded?: Preloaded) {
+  const { client, items } = await authorizedProjects(principal, undefined, preloaded);
+  return {
+    client,
+    projects: items.map(({ project, segments }) => ({ id: project.id, slug: project.slug, name: project.name, location: project.location,
+      segments: segments.map((s) => ({ id: s.id, name: s.name, slug: s.slug })) })),
+    pairs: items.flatMap(({ project, segments }) => segments.map((s) => ({ project_id: project.id, segment_id: s.id }))),
+  };
 }
