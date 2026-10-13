@@ -16,6 +16,24 @@ export async function proxy(request: NextRequest) {
   // Refresh the Supabase session on every signed-in area. Server Components cannot write cookies,
   // so without this an expired token is refreshed (and not saved) on every admin request.
   const path = request.nextUrl.pathname;
+
+  // Email links (password reset, invites) must reach /auth/confirm. When Supabase does not accept
+  // the redirect URL it falls back to the Site URL, so the link lands on "/" (the sign-in page)
+  // with ?code= or ?error_code= and the reset form never opens. Forward those here.
+  const params = request.nextUrl.searchParams;
+  if (path !== "/auth/confirm") {
+    if (params.has("code") || (params.has("token_hash") && params.has("type"))) {
+      const target = new URL("/auth/confirm", request.url);
+      for (const key of ["code", "token_hash", "type", "next"]) {
+        const value = params.get(key);
+        if (value) target.searchParams.set(key, value);
+      }
+      return NextResponse.redirect(target);
+    }
+    if (params.has("error_code") && /otp|expired|access_denied/i.test(`${params.get("error_code")} ${params.get("error")}`)) {
+      return NextResponse.redirect(new URL("/forgot-password?expired=1", request.url));
+    }
+  }
   if (["/projects", "/admin", "/change-password"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
     const client = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
       cookies: {
