@@ -14,7 +14,7 @@ Landing de los 6 proyectos Mailantarki en Abuja. Usa el mismo stack y la misma o
 Los ES modules no funcionan con `file://`, así que hay que servir la carpeta:
 
 ```
-cd Mailantarki
+cd landing
 python3 serve.py   # igual que http.server, pero sin caché del navegador
 # http://localhost:8000
 ```

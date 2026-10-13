@@ -1,0 +1,10 @@
+# Sistema operativo / editores (cada app tiene además su propio .gitignore)
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Por las dudas: nunca subir variables de entorno, en ninguna carpeta
+.env*
+!.env.example

@@ -1,0 +1,35 @@
+name: Portal CI
+
+# El portal vive en portal/. Este workflow corre solo cuando cambia algo ahí
+# (o este mismo archivo); los cambios de la landing no lo disparan.
+on:
+  pull_request:
+    paths:
+      - "portal/**"
+      - ".github/workflows/portal-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "portal/**"
+      - ".github/workflows/portal-ci.yml"
+
+defaults:
+  run:
+    working-directory: portal
+
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run
+      - run: npm run build
+      - run: npm audit --omit=dev
