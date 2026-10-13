@@ -24,11 +24,12 @@ export function LoginForm({ next = null }: { next?: string | null }) {
       router.push(redirectTo === "/change-password" ? "/change-password" : next ?? "/projects"); router.refresh();
     } catch { fail(copy.invalidLogin); } finally { setPending(false); }
   }
-  return <form className="form" onSubmit={submit}>
+  return <form className="form auth-form" onSubmit={submit}>
     {error && <p ref={alert} tabIndex={-1} className="form-alert" role="alert">{error}</p>}
     <label className="field">{copy.email}<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
     <PasswordInput label={copy.password} name="password" autoComplete="current-password" value={password} onChange={setPassword} />
-    <button className="button" type="submit" disabled={pending}>{pending ? "Signing in…" : copy.signIn}</button>
-    <p className="auth-links"><Link href="/forgot-password">Forgot password?</Link><Link href={withNext("/", next)}>Have a project code?</Link></p>
+    <p className="auth-inline-link"><Link href="/forgot-password">Forgot password?</Link></p>
+    <button className="button auth-primary" type="submit" disabled={pending}>{pending ? "Signing in…" : copy.signIn}</button>
+    <p className="auth-switch">No account? <Link href={withNext("/", next)}>Enter a project code</Link></p>
   </form>;
 }

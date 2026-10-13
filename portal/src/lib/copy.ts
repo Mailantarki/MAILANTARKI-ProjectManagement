@@ -9,4 +9,12 @@ export const copy = {
   signOut: "Sign out",
   invalidLogin: "Invalid email or password",
   invalidCode: "Invalid or expired code",
+  // Access pages (/, /login, /forgot-password, /reset-password)
+  portalName: "Client portal",
+  authStatement: "Drawings and documents, by project and discipline",
+  authDisciplines: ["Architecture", "Structure", "MEP", "Interior Design", "Landscaping", "Sales Plan"],
+  authCaption: "MAILANTARKI Sports Complex, Dakibiyu",
+  authHelp: "Need access? Ask your project administrator.",
+  landingUrl: "https://mailantarki.com",
+  landingLabel: "mailantarki.com",
 };

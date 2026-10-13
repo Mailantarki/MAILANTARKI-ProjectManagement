@@ -8,7 +8,7 @@ export function PasswordForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  return <form className="user-stacked-form" onSubmit={async (event) => {
+  return <form className="form auth-form" onSubmit={async (event) => {
     event.preventDefault(); if (busy) return;
     const form = new FormData(event.currentTarget); setBusy(true); setError("");
     try { await changeInitialPassword(form); router.replace("/projects"); router.refresh(); }
@@ -17,6 +17,6 @@ export function PasswordForm() {
   }}>
     {error && <p role="alert" className="form-alert">{error}</p>}
     <PasswordFields />
-    <button className="button" disabled={busy}>{busy ? "Saving..." : "Save password"}</button>
+    <button className="button auth-primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
   </form>;
 }

@@ -8,7 +8,7 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  return <form className="form" onSubmit={async (event) => {
+  return <form className="form auth-form" onSubmit={async (event) => {
     event.preventDefault(); if (busy) return;
     const form = new FormData(event.currentTarget); setBusy(true); setError("");
     try { await resetPassword(form); router.replace("/projects"); router.refresh(); }
@@ -16,6 +16,6 @@ export function ResetPasswordForm() {
   }}>
     {error && <p className="form-alert" role="alert">{error}</p>}
     <PasswordFields />
-    <button className="button" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
+    <button className="button auth-primary" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
   </form>;
 }

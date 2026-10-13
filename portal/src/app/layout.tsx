@@ -6,6 +6,7 @@ import "./globals.css";
 import "../styles/unified.css";
 import "../styles/components.css";
 import "../styles/shell.css";
+import "../styles/auth.css";
 
 export const metadata: Metadata = {
   title: "MAILANTARKI.COM | Technical documentation",
