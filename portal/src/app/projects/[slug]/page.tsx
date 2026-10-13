@@ -13,7 +13,7 @@ import { z } from "zod";
 import { DownloadButton, PdfViewerLauncher } from "../../../components/pdf/launcher";
 import { FilterForm } from "@/components/documents/filter-form";
 import { DocumentSetProvider } from "@/components/documents/document-set";
-import { DocumentPeek } from "@/components/documents/document-peek";
+import { DocumentPeekProvider, PeekTrigger } from "@/components/documents/document-peek";
 import { VisitBeacon } from "@/components/updates/visit-beacon";
 import { MarkSeenButton } from "@/components/updates/mark-seen";
 import { WatchButton } from "@/components/updates/watch-button";
@@ -135,29 +135,31 @@ export default async function ProjectPage({ params, searchParams }: Props) {
           { label: "All revisions", href: href({ revisions: "all", page: undefined }), active: history },
         ]} />
       </div>
-      {!!documents.length && <div className="table-scroll"><table className="document-table responsive-table"><thead><tr><th scope="col">Title</th><th scope="col">Number</th>{all && <th scope="col">Discipline</th>}<th scope="col">Type</th><th scope="col">Revision</th><th scope="col">Status</th><th scope="col">Issued</th><th scope="col">Size</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead><tbody>
+      <DocumentPeekProvider>
+      {!!documents.length && <div className="table-scroll"><table className="document-table responsive-table"><thead><tr><th scope="col">Title</th><th scope="col">Number</th>{all && <th scope="col" className="col-discipline">Discipline</th>}<th scope="col" className="col-type">Type</th><th scope="col">Revision</th><th scope="col">Status</th><th scope="col">Issued</th><th scope="col" className="col-size">Size</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead><tbody>
         {documents.map((doc) => <tr key={doc.id} className={doc.is_current ? undefined : "is-superseded"}>
-          <td className="document-title">{doc.is_featured && <Star className="featured-star" size={14} fill="currentColor" aria-label="Featured" />}<PdfViewerLauncher variant="title" document={viewerDoc(doc)} />
+          <td className="document-title">{doc.is_featured && <Star className="featured-star" size={14} fill="currentColor" aria-label="Featured" />}<PeekTrigger document={viewerDoc(doc)} />
             {doc.is_current && updateBy.has(`${doc.segment_id}:${doc.doc_number}`) && (() => {
               const update = updateBy.get(`${doc.segment_id}:${doc.doc_number}`)!;
               return <span className={`update-badge update-${update.kind}`} title={update.detail}>{update.kind === "new" ? "New" : "Updated"}</span>;
             })()}</td>
           <td className="document-number" data-label="Number">{doc.doc_number}</td>
-          {all && <td data-label="Discipline">{segmentName.get(doc.segment_id)}</td>}
-          <td data-label="Type">{label(docTypeLabels, doc.doc_type)}</td>
+          {all && <td className="col-discipline" data-label="Discipline">{segmentName.get(doc.segment_id)}</td>}
+          <td className="col-type" data-label="Type">{label(docTypeLabels, doc.doc_type)}</td>
           <td data-label="Revision">{doc.is_current
             ? <RevisionChip rev={doc.revision} earlier={doc.earlier} href={doc.earlier ? href({ revisions: "all", q: doc.doc_number, page: undefined }) : undefined} />
             : <span className="revision-superseded"><RevisionChip rev={doc.revision} /><StatusBadge status="superseded" /></span>}</td>
           <td data-label="Status"><StatusBadge status={doc.status} /></td>
           <td className="document-date" data-label="Issued">{formatDate(doc.issue_date)}</td>
-          <td className="document-size" data-label="Size">{formatFileSize(doc.file_size)}</td>
-          <td className="document-actions"><PdfViewerLauncher document={viewerDoc(doc)} /><DocumentPeek document={viewerDoc(doc)} />{canDownload.has(doc.segment_id) && <DownloadButton document={viewerDoc(doc)} />}</td>
+          <td className="document-size col-size" data-label="Size">{formatFileSize(doc.file_size)}</td>
+          <td className="document-actions"><PdfViewerLauncher document={viewerDoc(doc)} />{canDownload.has(doc.segment_id) && <DownloadButton document={viewerDoc(doc)} />}</td>
         </tr>)}
       </tbody></table></div>}
       {!documents.length && <div className="empty-results"><strong>No documents match these filters.</strong>
         <span>{!all && project.segments.length > 1 && (filters.q || activeChips.length)
           ? <><Link href={href({ segment: ALL_SEGMENTS, page: undefined })}>Search all disciplines</Link> or </> : null}
           <Link href={`/projects/${slug}?segment=${segment.slug}`}>clear filters</Link>.</span></div>}
+      </DocumentPeekProvider>
       {opened && <PdfViewerLauncher variant="auto" document={viewerDoc(opened)} />}
       {count > pageSize && <nav className="pagination" aria-label="Pages">
         {page > 1 ? <Link href={href({ page: String(page - 1) })}>Previous</Link> : <span className="pagination-spacer" />}

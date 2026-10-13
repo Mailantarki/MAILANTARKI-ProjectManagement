@@ -89,6 +89,22 @@ test.describe.serial("current set and revisions", () => {
     await expect(viewer.getByRole("combobox", { name: "Revision" })).toHaveValue(fixture.documents.B);
   });
 
+  test("clicking a document opens its details panel with a preview", async ({ page }) => {
+    await signIn(page, fixture.member);
+    await page.goto(`/projects/maylan-plaza?q=${number}`);
+    await page.locator("tbody tr", { hasText: number }).getByRole("button", { name: "Current set plan", exact: true }).click();
+    const panel = page.getByRole("complementary", { name: "Current set plan" });
+    await expect(panel.getByText(`${number} · Plan`)).toBeVisible();
+    await expect(panel.locator(".peek-preview canvas")).toBeVisible();
+    await expect(panel.getByRole("heading", { name: /Revision history/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Download" })).toHaveCount(0); // view-only member
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(page.getByRole("dialog").locator("canvas.react-pdf__Page__canvas")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+  });
+
   test("a document link the member cannot see is not found", async ({ page }) => {
     await signIn(page, fixture.member);
     // The [slug] loading boundary streams the page, so the not-found UI arrives with a 200.

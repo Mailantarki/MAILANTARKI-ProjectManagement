@@ -5,7 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Eye } from "lucide-react";
 import { useDocumentSet } from "@/components/documents/document-set";
 
-const Viewer = dynamic(() => import("./viewer"), { ssr: false });
+import { preloadViewer, ViewerSkeleton } from "./viewer-skeleton";
+
+const Viewer = dynamic(() => import("./viewer"), { ssr: false, loading: () => <ViewerSkeleton /> });
 
 export type ViewerDocument = { id: string; title: string; subtitle: string };
 
@@ -30,8 +32,8 @@ export function PdfViewerLauncher({ document, variant = "button" }: { document: 
   }
   return <>
     {variant === "title"
-      ? <button className="document-open" type="button" onClick={() => setOpen(true)}>{document.title}</button>
-      : <button className="view-document" type="button" onClick={() => setOpen(true)} aria-label={`View ${document.title}`}><Eye size={15} aria-hidden />View</button>}
+      ? <button className="document-open" type="button" onPointerEnter={preloadViewer} onFocus={preloadViewer} onClick={() => setOpen(true)}>{document.title}</button>
+      : <button className="view-document" type="button" onPointerEnter={preloadViewer} onFocus={preloadViewer} onClick={() => setOpen(true)} aria-label={`View ${document.title}`}><Eye size={15} aria-hidden /><span className="view-label">View</span></button>}
     {open && <Viewer document={document} siblings={siblings} onClose={() => setOpen(false)} />}
   </>;
 }

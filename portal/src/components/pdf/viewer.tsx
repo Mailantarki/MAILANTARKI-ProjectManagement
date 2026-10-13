@@ -1,6 +1,6 @@
 "use client";
 import "./polyfills";
-import { useCallback, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent, type TouchList as ReactTouchList } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type TouchEvent as ReactTouchEvent, type TouchList as ReactTouchList } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Maximize, Minimize, Minus, Plus, RotateCw, X } from "lucide-react";
 import type { ViewerDocument } from "./launcher";
@@ -30,7 +30,10 @@ export default function PdfViewer({ document: initial, onClose, siblings = [] }:
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [fit, setFit] = useState<Fit>("width");
-  const [box, setBox] = useState({ width: 800, height: 600 });
+  // Measured before the first page is drawn, so the page is never drawn at a guessed size first.
+  const [box, setBox] = useState<{ width: number; height: number } | null>(null);
+  // Which page (document:page) has finished drawing; until then the spinner covers the stage.
+  const [drawn, setDrawn] = useState("");
   const [aspect, setAspect] = useState(1.414);
   const [progress, setProgress] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -91,11 +94,19 @@ export default function PdfViewer({ document: initial, onClose, siblings = [] }:
     void reload();
   };
 
-  useEffect(() => {
-    const observer = new ResizeObserver(([entry]) => setBox({
-      width: Math.max(200, entry.contentRect.width - 32), height: Math.max(200, entry.contentRect.height - 32),
-    }));
-    if (viewport.current) observer.observe(viewport.current);
+  useLayoutEffect(() => {
+    const element = viewport.current;
+    if (!element) return;
+    const measure = (width: number, height: number) => {
+      if (width < 50) return; // not laid out yet
+      setBox((old) => {
+        const next = { width: Math.max(200, Math.round(width - 32)), height: Math.max(200, Math.round(height - 32)) };
+        return old && old.width === next.width && old.height === next.height ? old : next;
+      });
+    };
+    measure(element.clientWidth, element.clientHeight);
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
+    observer.observe(element);
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
@@ -179,8 +190,11 @@ export default function PdfViewer({ document: initial, onClose, siblings = [] }:
       window.location.assign(fresh.url);
     } catch { setError("Unable to download this document."); }
   };
-  const baseWidth = fit === "page" ? Math.min(box.width, box.height * aspect) : box.width;
+  const baseWidth = box ? (fit === "page" ? Math.min(box.width, box.height * aspect) : box.width) : 0;
   const loadingText = progress > 0 && progress < 100 ? `Loading document… ${progress}%` : "Loading document…";
+  const pageKey = `${doc.id}:${page}`;
+  const ready = drawn === pageKey;
+  const spinner = (text: string) => <div className="viewer-loading" role="status"><span className="spinner" aria-hidden />{text}</div>;
 
   return <div className="viewer-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
     <div className="viewer" ref={stage} role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -217,16 +231,24 @@ export default function PdfViewer({ document: initial, onClose, siblings = [] }:
         <span>This revision was superseded{activeRevision.supersededAt ? ` on ${formatDate(activeRevision.supersededAt)}` : ""}.</span>
         {currentRevision && <button type="button" className="button" onClick={() => openRevision(currentRevision.id)}>Open Rev {currentRevision.revision}</button>}
       </div>}
-      <div className="viewer-stage" ref={viewport} onTouchStart={touchStart} onTouchMove={touchMove} onTouchEnd={touchEnd}>{error ? <div className="viewer-message" role="alert">{error} <button className="button secondary" onClick={() => { retried.current = false; void reload(); }}><RotateCw size={16} aria-hidden /> Retry</button></div> : ticket ? <div className="pdf-page">
-        <Document file={ticket.url}
-          onLoadProgress={({ loaded, total }) => { if (total) setProgress(Math.round(loaded / total * 100)); }}
-          onLoadSuccess={({ numPages }) => { retried.current = false; setPages(numPages); setPage((p) => Math.min(p, numPages)); }}
-          onLoadError={loadFailed} loading={<div className="viewer-message">{loadingText}</div>}>
-          <Page pageNumber={page} width={Math.round(baseWidth * zoom)} loading={<div className="viewer-message">Loading page…</div>}
-            onLoadSuccess={(p) => { if (p.originalHeight) setAspect(p.originalWidth / p.originalHeight); }} />
-        </Document>
-        {superseded && pages > 0 && <div className="superseded-mark" aria-hidden>SUPERSEDED</div>}
-      </div> : <div className="viewer-message">Loading document…</div>}</div>
+      <div className="viewer-stage" ref={viewport} onTouchStart={touchStart} onTouchMove={touchMove} onTouchEnd={touchEnd}>
+        {error ? <div className="viewer-message" role="alert">{error} <button className="button secondary" onClick={() => { retried.current = false; void reload(); }}><RotateCw size={16} aria-hidden /> Retry</button></div>
+          : <>
+            {!ready && spinner(pages ? "Loading page…" : loadingText)}
+            {/* Anything in the PDF layer that suspends shows the spinner here, never the whole dialog. */}
+            {ticket && box && <Suspense fallback={null}><div className={`pdf-page${ready ? "" : " is-pending"}`}>
+              <Document file={ticket.url}
+                onLoadProgress={({ loaded, total }) => { if (total) setProgress(Math.round(loaded / total * 100)); }}
+                onLoadSuccess={({ numPages }) => { retried.current = false; setPages(numPages); setPage((p) => Math.min(p, numPages)); }}
+                onLoadError={loadFailed} loading={null}>
+                <Page pageNumber={page} width={Math.round(baseWidth * zoom)} loading={null}
+                  onLoadSuccess={(p) => { if (p.originalHeight) setAspect(p.originalWidth / p.originalHeight); }}
+                  onRenderSuccess={() => setDrawn(pageKey)} />
+              </Document>
+              {superseded && pages > 0 && <div className="superseded-mark" aria-hidden>SUPERSEDED</div>}
+            </div></Suspense>}
+          </>}
+      </div>
     </div>
   </div>;
 }

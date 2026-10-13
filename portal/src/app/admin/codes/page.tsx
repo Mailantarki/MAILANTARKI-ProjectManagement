@@ -8,7 +8,7 @@ import { AdminForm } from "../admin-form";
 import { CreateCodeForm } from "./create-code-form";
 import { setCodeActive, deleteAccessCode } from "./actions";
 import { CodeStatus } from "./code-status";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { ExtendCodeButton } from "./extend-code";
 import { UserDialog } from "../users/dialog";
 import { PeopleTabs } from "../people-tabs";
@@ -52,7 +52,7 @@ export default async function AdminCodesPage({ searchParams }: { searchParams: P
         <td className="wide-cell" data-label="Access"><span className="grant-chips">{(grants ?? []).filter((grant) => grant.access_code_id === code.id).map((grant) =>
           <span className="grant-chip" key={`${grant.project_id}-${grant.segment_id}`}>{projects?.find((project) => project.id === grant.project_id)?.name ?? "Project"} · {segments?.find((segment) => segment.id === grant.segment_id)?.name ?? "All disciplines"}</span>)}</span></td>
         <td className="nowrap" data-label="Uses">{code.uses_count}{code.max_uses == null ? "" : ` / ${code.max_uses}`}</td>
-        <td data-label="Expires">{code.expires_at ? formatDateTime(code.expires_at) : "Never"}</td>
+        <td className="nowrap" data-label="Expires">{code.expires_at ? <time dateTime={code.expires_at} title={formatDateTime(code.expires_at)}>{formatDate(code.expires_at)}</time> : "Never"}</td>
         <td data-label="Status"><CodeStatus active={code.is_active} expiresAt={code.expires_at} /></td>
         <td className="document-actions"><div className="document-admin-actions">
           {/* Active → Revoke. Expired → Extend (revoking is pointless). Revoked → Reactivate (+ Extend if also expired). */}
